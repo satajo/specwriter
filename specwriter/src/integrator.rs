@@ -144,6 +144,7 @@ async fn run_command(config: &IntegratorConfig, prompt: &str) -> Result<String, 
         .args(&config.args)
         .arg(prompt)
         .current_dir(&config.working_dir)
+        .stdin(std::process::Stdio::null())
         .output()
         .await
         .map_err(|e| format!("Failed to run {}: {e}", config.command))?;

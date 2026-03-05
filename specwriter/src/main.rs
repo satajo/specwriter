@@ -1,8 +1,9 @@
 use crossterm::{
-    event::{self, Event},
+    event::{Event, EventStream},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use futures::StreamExt;
 use ratatui::prelude::*;
 use std::io;
 
@@ -17,18 +18,28 @@ async fn main() -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let (mut app, mut ui_rx) = App::with_default_integrator();
+    let mut events = EventStream::new();
 
     loop {
         terminal.draw(|f| specwriter::ui::draw(f, &app))?;
 
-        while let Ok(msg) = ui_rx.try_recv() {
-            app.update_from_integrator(msg);
+        // Wait for either a key event or an integrator message — no blocking
+        tokio::select! {
+            event = events.next() => {
+                if let Some(Ok(Event::Key(key))) = event {
+                    app.handle_key(key);
+                }
+            }
+            msg = ui_rx.recv() => {
+                if let Some(msg) = msg {
+                    app.update_from_integrator(msg);
+                }
+            }
         }
 
-        if event::poll(std::time::Duration::from_millis(50))? {
-            if let Event::Key(key) = event::read()? {
-                app.handle_key(key);
-            }
+        // Drain any remaining messages that arrived during the select
+        while let Ok(msg) = ui_rx.try_recv() {
+            app.update_from_integrator(msg);
         }
 
         if app.should_quit {
