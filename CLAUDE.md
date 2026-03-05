@@ -43,6 +43,10 @@ nix develop --command cargo test --package specwriter-bdd
 
 This applies to any task that adds, changes, or removes user-facing behavior. The feature suite is the source of truth for what specwriter does — no important behavior should exist without a corresponding scenario.
 
+## Writing Gherkin
+
+Read `bdd/GHERKIN_GUIDE.md` before writing or modifying feature files. Key points: behavior over mechanics, declarative steps, one behavior per scenario, domain language, 3-7 steps per scenario.
+
 ## Conventions
 
 - No Python. Rust only.
