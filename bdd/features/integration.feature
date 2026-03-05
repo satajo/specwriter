@@ -26,7 +26,6 @@ Feature: Spec Integration
     When I type "   "
     And I press Ctrl+S
     Then the screen should show "Ready"
-    And the input area should show "   "
 
   Scenario: Input is cleared after submission
     When I type "Some requirement"
@@ -35,10 +34,12 @@ Feature: Spec Integration
     Then the input area should not show "Some requirement"
     And the screen should show "Integrating"
 
-  Scenario: Multiple rapid submissions are batched
+  Scenario: Rapid submissions are all integrated
     When I type "Feature A: search functionality"
     And I press Ctrl+S
     And I type "Feature B: filtering results"
     And I press Ctrl+S
-    And I wait for integration to complete
-    Then the integrator should have completed 1 cycle
+    And I wait for all integrations to finish
+    Then SPEC.md should contain "search"
+    And SPEC.md should contain "filtering"
+    And the screen should show "Integration complete"

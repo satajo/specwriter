@@ -304,6 +304,23 @@ impl AppRunner {
         panic!("Timed out waiting for integration to complete");
     }
 
+    /// Wait until all pending integrations are done (no new completions for 500ms).
+    pub async fn wait_until_idle(&mut self) {
+        loop {
+            match tokio::time::timeout(
+                tokio::time::Duration::from_millis(500),
+                self.ui_rx.recv(),
+            )
+            .await
+            {
+                Ok(Some(msg)) => {
+                    self.app.update_from_integrator(msg);
+                }
+                _ => return, // timeout (idle) or channel closed
+            }
+        }
+    }
+
     /// Check whether a string appears anywhere on the rendered screen.
     pub fn screen_contains(&mut self, needle: &str) -> bool {
         let screen = self.render();

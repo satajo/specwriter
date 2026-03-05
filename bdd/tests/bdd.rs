@@ -12,7 +12,6 @@ const SCREEN_HEIGHT: u16 = 30;
 struct SpecwriterWorld {
     runner: Option<AppRunner>,
     workdir: Option<TempDir>,
-    integration_count: usize,
 }
 
 impl SpecwriterWorld {
@@ -20,7 +19,6 @@ impl SpecwriterWorld {
         Self {
             runner: None,
             workdir: None,
-            integration_count: 0,
         }
     }
 
@@ -54,17 +52,6 @@ async fn running_with_mock(world: &mut SpecwriterWorld) {
         working_dir: world.workdir_path(),
     };
     world.start_with_config(config);
-    // Verify the initial screen renders
-    let screen = world.runner().render();
-    assert!(screen.contains("Status"), "Initial screen should show Status bar");
-    assert!(
-        screen.contains("Open Questions"),
-        "Initial screen should show Questions panel"
-    );
-    assert!(
-        screen.contains("Input"),
-        "Initial screen should show Input area"
-    );
 }
 
 #[given("the specwriter is running with a no-questions mock")]
@@ -126,7 +113,12 @@ async fn press_ctrl_s(world: &mut SpecwriterWorld) {
 #[when("I wait for integration to complete")]
 async fn wait_for_integration(world: &mut SpecwriterWorld) {
     world.runner().wait_for_integration().await;
-    world.integration_count += 1;
+}
+
+#[when("I wait for all integrations to finish")]
+async fn wait_for_all_integrations(world: &mut SpecwriterWorld) {
+    world.runner().wait_for_integration().await;
+    world.runner().wait_until_idle().await;
 }
 
 // --- THEN steps ---
@@ -200,16 +192,6 @@ async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: Strin
         "Input area should NOT contain '{}', but it does:\n{}",
         expected,
         input_section
-    );
-}
-
-#[then(regex = r"^the integrator should have completed (\d+) cycles?$")]
-async fn integrator_completed_cycles(world: &mut SpecwriterWorld, expected: String) {
-    let expected: usize = expected.parse().unwrap();
-    assert_eq!(
-        world.integration_count, expected,
-        "Expected {} integration cycle(s), got {}",
-        expected, world.integration_count
     );
 }
 

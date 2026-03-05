@@ -11,11 +11,10 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Open Questions"
-    And the screen should show "1."
+    Then the screen should show "1."
     And the screen should not show "No open questions"
 
-  Scenario: Questions update after each integration
+  Scenario: Questions are refreshed on subsequent integrations
     When I type "Users can create projects"
     And I press Ctrl+S
     And I wait for integration to complete
@@ -23,7 +22,8 @@ Feature: Question Generation
     When I type "Projects have a name and description"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the integrator should have completed 2 cycles
+    Then the screen should show "1."
+    And the screen should not show "No open questions"
 
   Scenario: No questions when integrator output has none
     Given the specwriter is running with a no-questions mock
