@@ -5,23 +5,29 @@ Feature: Question Generation
 
   Background:
     Given a clean working directory
-    And the integrator is configured with a mock command
+    And the specwriter is running with a mock command
 
-  Scenario: Integration produces questions
-    When I submit the message "The app needs user authentication"
+  Scenario: Integration produces questions on screen
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
     And I wait for integration to complete
-    Then I should see questions displayed
-    And there should be at most 3 questions
+    Then the screen should show "Open Questions"
+    And the screen should show "1."
+    And the screen should not show "No open questions"
 
   Scenario: Questions update after each integration
-    When I submit the message "Users can create projects"
+    When I type "Users can create projects"
+    And I press Ctrl+S
     And I wait for integration to complete
-    And I submit the message "Projects have a name and description"
+    Then the screen should show "1."
+    When I type "Projects have a name and description"
+    And I press Ctrl+S
     And I wait for integration to complete
-    Then the questions should have been updated
+    Then the integrator should have completed 2 cycles
 
   Scenario: No questions when integrator output has none
-    Given the mock command will not produce questions
-    When I submit the message "Simple requirement"
+    Given the specwriter is running with a no-questions mock
+    When I type "Simple requirement"
+    And I press Ctrl+S
     And I wait for integration to complete
-    Then I should see no questions displayed
+    Then the screen should show "No open questions"

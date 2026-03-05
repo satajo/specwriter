@@ -1,5 +1,5 @@
 use crossterm::{
-    event::{self, Event, KeyCode, KeyEvent, KeyModifiers},
+    event::{self, Event},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -27,73 +27,7 @@ async fn main() -> anyhow::Result<()> {
 
         if event::poll(std::time::Duration::from_millis(50))? {
             if let Event::Key(key) = event::read()? {
-                match key {
-                    KeyEvent {
-                        code: KeyCode::Char('c'),
-                        modifiers: KeyModifiers::CONTROL,
-                        ..
-                    } => {
-                        app.should_quit = true;
-                    }
-                    KeyEvent {
-                        code: KeyCode::Char('s'),
-                        modifiers: KeyModifiers::CONTROL,
-                        ..
-                    } => {
-                        app.submit();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Enter,
-                        modifiers: KeyModifiers::NONE,
-                        ..
-                    } => {
-                        app.insert_newline();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Backspace,
-                        ..
-                    } => {
-                        app.backspace();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Delete,
-                        ..
-                    } => {
-                        app.delete();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Left,
-                        ..
-                    } => {
-                        app.move_left();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Right,
-                        ..
-                    } => {
-                        app.move_right();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Home,
-                        ..
-                    } => {
-                        app.move_home();
-                    }
-                    KeyEvent {
-                        code: KeyCode::End,
-                        ..
-                    } => {
-                        app.move_end();
-                    }
-                    KeyEvent {
-                        code: KeyCode::Char(c),
-                        modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
-                        ..
-                    } => {
-                        app.insert_char(c);
-                    }
-                    _ => {}
-                }
+                app.handle_key(key);
             }
         }
 

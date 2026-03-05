@@ -7,13 +7,15 @@ Feature: Error Handling
     Given a clean working directory
 
   Scenario: Integrator command not found
-    Given the integrator is configured with command "nonexistent-command-xyz"
-    When I submit the message "Some requirement"
+    Given the specwriter is running with command "nonexistent-command-xyz"
+    When I type "Some requirement"
+    And I press Ctrl+S
     And I wait for integration to complete
-    Then the status should contain "Error"
+    Then the screen should show "Error"
 
   Scenario: Integrator command exits with error
-    Given the integrator is configured with a failing mock command
-    When I submit the message "Some requirement"
+    Given the specwriter is running with a failing mock command
+    When I type "Some requirement"
+    And I press Ctrl+S
     And I wait for integration to complete
-    Then the status should contain "Error"
+    Then the screen should show "Error"

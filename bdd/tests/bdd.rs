@@ -1,33 +1,26 @@
 use cucumber::{given, then, when, World};
-use specwriter::integrator::{IntegratorConfig, IntegratorMessage};
-use specwriter::App;
+use specwriter::integrator::IntegratorConfig;
+use specwriter::AppRunner;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use tokio::sync::mpsc;
+
+const SCREEN_WIDTH: u16 = 100;
+const SCREEN_HEIGHT: u16 = 30;
 
 #[derive(Debug, World)]
 #[world(init = Self::new)]
 struct SpecwriterWorld {
-    app: Option<App>,
-    ui_rx: Option<mpsc::UnboundedReceiver<IntegratorMessage>>,
+    runner: Option<AppRunner>,
     workdir: Option<TempDir>,
     integration_count: usize,
-    last_questions: Vec<String>,
-    previous_questions: Option<Vec<String>>,
-    mock_script: String,
 }
 
 impl SpecwriterWorld {
     fn new() -> Self {
-        let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         Self {
-            app: None,
-            ui_rx: None,
+            runner: None,
             workdir: None,
             integration_count: 0,
-            last_questions: Vec::new(),
-            previous_questions: None,
-            mock_script: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
         }
     }
 
@@ -35,87 +28,81 @@ impl SpecwriterWorld {
         self.workdir.as_ref().unwrap().path().to_path_buf()
     }
 
-    fn init_app(&mut self) {
-        let config = IntegratorConfig {
-            command: self.mock_script.clone(),
-            args: Vec::new(),
-            working_dir: self.workdir_path(),
-        };
-        let (app, ui_rx) = App::with_config(config);
-        self.app = Some(app);
-        self.ui_rx = Some(ui_rx);
+    fn runner(&mut self) -> &mut AppRunner {
+        self.runner.as_mut().expect("AppRunner not initialized")
     }
 
-    async fn drain_messages(&mut self) {
-        let rx = self.ui_rx.as_mut().unwrap();
-        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
-        let mut got_completion = false;
-
-        while tokio::time::Instant::now() < deadline {
-            match tokio::time::timeout(tokio::time::Duration::from_millis(100), rx.recv()).await {
-                Ok(Some(msg)) => {
-                    let app = self.app.as_mut().unwrap();
-                    match &msg {
-                        IntegratorMessage::QuestionsUpdated(q) => {
-                            self.previous_questions = Some(self.last_questions.clone());
-                            self.last_questions = q.clone();
-                        }
-                        IntegratorMessage::StatusUpdate(s) => {
-                            if s.contains("complete") || s.contains("Error") {
-                                self.integration_count += 1;
-                                got_completion = true;
-                            }
-                        }
-                    }
-                    app.update_from_integrator(msg);
-                    if got_completion {
-                        while let Ok(msg) = rx.try_recv() {
-                            match &msg {
-                                IntegratorMessage::QuestionsUpdated(q) => {
-                                    self.previous_questions =
-                                        Some(self.last_questions.clone());
-                                    self.last_questions = q.clone();
-                                }
-                                _ => {}
-                            }
-                            app.update_from_integrator(msg);
-                        }
-                        break;
-                    }
-                }
-                Ok(None) => break,
-                Err(_) => continue,
-            }
-        }
+    fn start_with_config(&mut self, config: IntegratorConfig) {
+        let runner = AppRunner::new(config, SCREEN_WIDTH, SCREEN_HEIGHT);
+        self.runner = Some(runner);
     }
 }
 
-// --- GIVEN steps (all async for tokio runtime access) ---
+// --- GIVEN steps ---
 
 #[given("a clean working directory")]
 async fn clean_working_directory(world: &mut SpecwriterWorld) {
     world.workdir = Some(TempDir::new().unwrap());
 }
 
-#[given("the integrator is configured with a mock command")]
-async fn configure_mock(world: &mut SpecwriterWorld) {
-    world.init_app();
-}
-
-#[given(expr = "the integrator is configured with command {string}")]
-async fn configure_custom_command(world: &mut SpecwriterWorld, command: String) {
-    world.mock_script = command;
-    world.init_app();
-}
-
-#[given("the integrator is configured with a failing mock command")]
-async fn configure_failing_mock(world: &mut SpecwriterWorld) {
+#[given("the specwriter is running with a mock command")]
+async fn running_with_mock(world: &mut SpecwriterWorld) {
     let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    world.mock_script = bdd_dir
-        .join("mock-claude-fail.sh")
-        .to_string_lossy()
-        .into();
-    world.init_app();
+    let config = IntegratorConfig {
+        command: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+    };
+    world.start_with_config(config);
+    // Verify the initial screen renders
+    let screen = world.runner().render();
+    assert!(screen.contains("Status"), "Initial screen should show Status bar");
+    assert!(
+        screen.contains("Open Questions"),
+        "Initial screen should show Questions panel"
+    );
+    assert!(
+        screen.contains("Input"),
+        "Initial screen should show Input area"
+    );
+}
+
+#[given("the specwriter is running with a no-questions mock")]
+async fn running_with_no_questions_mock(world: &mut SpecwriterWorld) {
+    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = IntegratorConfig {
+        command: bdd_dir
+            .join("mock-claude-no-questions.sh")
+            .to_string_lossy()
+            .into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+    };
+    world.start_with_config(config);
+}
+
+#[given(expr = "the specwriter is running with command {string}")]
+async fn running_with_command(world: &mut SpecwriterWorld, command: String) {
+    let config = IntegratorConfig {
+        command,
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+    };
+    world.start_with_config(config);
+}
+
+#[given("the specwriter is running with a failing mock command")]
+async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
+    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = IntegratorConfig {
+        command: bdd_dir
+            .join("mock-claude-fail.sh")
+            .to_string_lossy()
+            .into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+    };
+    world.start_with_config(config);
 }
 
 #[given(expr = "SPEC.md already contains {string}")]
@@ -124,51 +111,22 @@ async fn spec_already_exists(world: &mut SpecwriterWorld, content: String) {
     std::fs::write(world.workdir_path().join("SPEC.md"), content).unwrap();
 }
 
-#[given("the mock command will not produce questions")]
-async fn configure_no_questions_mock(world: &mut SpecwriterWorld) {
-    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    world.mock_script = bdd_dir
-        .join("mock-claude-no-questions.sh")
-        .to_string_lossy()
-        .into();
-    world.init_app();
-}
-
 // --- WHEN steps ---
 
-#[when(expr = "I submit the message {string}")]
-async fn submit_message(world: &mut SpecwriterWorld, message: String) {
-    let app = world.app.as_mut().unwrap();
-    app.input = message;
-    app.cursor_pos = app.input.len();
-    app.submit();
+#[when(expr = "I type {string}")]
+async fn type_text(world: &mut SpecwriterWorld, text: String) {
+    world.runner().type_str(&text);
 }
 
-#[when(expr = "I immediately submit the message {string}")]
-async fn immediately_submit_message(world: &mut SpecwriterWorld, message: String) {
-    let app = world.app.as_mut().unwrap();
-    app.input = message;
-    app.cursor_pos = app.input.len();
-    app.submit();
+#[when("I press Ctrl+S")]
+async fn press_ctrl_s(world: &mut SpecwriterWorld) {
+    world.runner().submit();
 }
 
 #[when("I wait for integration to complete")]
 async fn wait_for_integration(world: &mut SpecwriterWorld) {
-    world.drain_messages().await;
-}
-
-#[when(expr = "I type {string}")]
-async fn type_text(world: &mut SpecwriterWorld, text: String) {
-    let app = world.app.as_mut().unwrap();
-    for c in text.chars() {
-        app.insert_char(c);
-    }
-}
-
-#[when("I submit")]
-async fn submit_current(world: &mut SpecwriterWorld) {
-    let app = world.app.as_mut().unwrap();
-    app.submit();
+    world.runner().wait_for_integration().await;
+    world.integration_count += 1;
 }
 
 // --- THEN steps ---
@@ -192,72 +150,66 @@ async fn spec_contains(world: &mut SpecwriterWorld, expected: String) {
     );
 }
 
-#[then(expr = "the status should be {string}")]
-async fn status_is(world: &mut SpecwriterWorld, expected: String) {
-    let app = world.app.as_ref().unwrap();
-    assert_eq!(app.status, expected, "Status mismatch");
-}
-
-#[then(expr = "the status should contain {string}")]
-async fn status_contains(world: &mut SpecwriterWorld, expected: String) {
-    let app = world.app.as_ref().unwrap();
+#[then(expr = "the screen should show {string}")]
+async fn screen_should_show(world: &mut SpecwriterWorld, expected: String) {
+    let screen = world.runner().render();
     assert!(
-        app.status.contains(&expected),
-        "Status '{}' should contain '{}'",
-        app.status,
-        expected
+        screen.contains(&expected),
+        "Screen should contain '{}', but got:\n{}",
+        expected,
+        screen
     );
 }
 
-#[then("no integration should have been triggered")]
-async fn no_integration_triggered(world: &mut SpecwriterWorld) {
+#[then(expr = "the screen should not show {string}")]
+async fn screen_should_not_show(world: &mut SpecwriterWorld, expected: String) {
+    let screen = world.runner().render();
+    assert!(
+        !screen.contains(&expected),
+        "Screen should NOT contain '{}', but it does:\n{}",
+        expected,
+        screen
+    );
+}
+
+#[then(expr = "the input area should show {string}")]
+async fn input_area_should_show(world: &mut SpecwriterWorld, expected: String) {
+    let screen = world.runner().render();
+    // The input area is between the "Input" title and the help line
+    let input_start = screen.find("Input").expect("Input area not found on screen");
+    let input_section = &screen[input_start..];
+    assert!(
+        input_section.contains(&expected),
+        "Input area should contain '{}', but got:\n{}",
+        expected,
+        input_section
+    );
+}
+
+#[then(expr = "the input area should not show {string}")]
+async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: String) {
+    let screen = world.runner().render();
+    let input_start = screen.find("Input").expect("Input area not found on screen");
+    let help_start = screen[input_start..]
+        .find("Ctrl+C")
+        .map(|i| input_start + i)
+        .unwrap_or(screen.len());
+    let input_section = &screen[input_start..help_start];
+    assert!(
+        !input_section.contains(&expected),
+        "Input area should NOT contain '{}', but it does:\n{}",
+        expected,
+        input_section
+    );
+}
+
+#[then(regex = r"^the integrator should have completed (\d+) cycles?$")]
+async fn integrator_completed_cycles(world: &mut SpecwriterWorld, expected: String) {
+    let expected: usize = expected.parse().unwrap();
     assert_eq!(
-        world.integration_count, 0,
-        "No integration should have been triggered"
-    );
-}
-
-#[then("the integrator should have received both messages in one batch")]
-async fn messages_batched(world: &mut SpecwriterWorld) {
-    assert_eq!(
-        world.integration_count, 1,
-        "Expected 1 integration (batched), got {}",
-        world.integration_count
-    );
-}
-
-#[then("I should see questions displayed")]
-async fn questions_displayed(world: &mut SpecwriterWorld) {
-    assert!(
-        !world.last_questions.is_empty(),
-        "Should have questions, but got none"
-    );
-}
-
-#[then("there should be at most 3 questions")]
-async fn at_most_3_questions(world: &mut SpecwriterWorld) {
-    assert!(
-        world.last_questions.len() <= 3,
-        "Expected at most 3 questions, got {}",
-        world.last_questions.len()
-    );
-}
-
-#[then("the questions should have been updated")]
-async fn questions_updated(world: &mut SpecwriterWorld) {
-    assert!(
-        world.previous_questions.is_some(),
-        "Questions should have been updated at least once"
-    );
-}
-
-#[then("I should see no questions displayed")]
-async fn no_questions_displayed(world: &mut SpecwriterWorld) {
-    let app = world.app.as_ref().unwrap();
-    assert!(
-        app.questions.is_empty(),
-        "Expected no questions, got {:?}",
-        app.questions
+        world.integration_count, expected,
+        "Expected {} integration cycle(s), got {}",
+        expected, world.integration_count
     );
 }
 

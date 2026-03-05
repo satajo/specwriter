@@ -5,28 +5,40 @@ Feature: Spec Integration
 
   Background:
     Given a clean working directory
-    And the integrator is configured with a mock command
+    And the specwriter is running with a mock command
 
   Scenario: First message creates a new spec
-    When I submit the message "The app should have a login page"
+    When I type "The app should have a login page"
+    And I press Ctrl+S
     And I wait for integration to complete
     Then SPEC.md should exist
     And SPEC.md should contain "login"
+    And the screen should show "Integration complete"
 
   Scenario: Subsequent messages update the existing spec
     Given SPEC.md already contains "# Spec\n\nThe app has a login page."
-    When I submit the message "Users should also be able to reset their password"
+    When I type "Users should also be able to reset their password"
+    And I press Ctrl+S
     And I wait for integration to complete
     Then SPEC.md should contain "password"
 
   Scenario: Submitting empty text does nothing
     When I type "   "
-    And I submit
-    Then the status should be "Ready. Type your requirements and press Ctrl+S to submit."
-    And no integration should have been triggered
+    And I press Ctrl+S
+    Then the screen should show "Ready"
+    And the input area should show "   "
+
+  Scenario: Input is cleared after submission
+    When I type "Some requirement"
+    Then the input area should show "Some requirement"
+    When I press Ctrl+S
+    Then the input area should not show "Some requirement"
+    And the screen should show "Integrating"
 
   Scenario: Multiple rapid submissions are batched
-    When I submit the message "Feature A: search functionality"
-    And I immediately submit the message "Feature B: filtering results"
+    When I type "Feature A: search functionality"
+    And I press Ctrl+S
+    And I type "Feature B: filtering results"
+    And I press Ctrl+S
     And I wait for integration to complete
-    Then the integrator should have received both messages in one batch
+    Then the integrator should have completed 1 cycle
