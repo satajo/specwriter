@@ -7,6 +7,12 @@ Feature: Spec Integration
     Given a clean working directory
     And the specwriter is running with a mock command
 
+  Scenario: Application starts with a ready screen
+    Then the screen should show "Ready"
+    And the screen should show "Open Questions"
+    And the screen should show "Input"
+    And the screen should show "Ctrl+S"
+
   Scenario: First message creates a new spec
     When I type "The app should have a login page"
     And I press Ctrl+S

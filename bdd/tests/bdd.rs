@@ -195,6 +195,41 @@ async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: Strin
     );
 }
 
+#[then(expr = "{string} should succeed")]
+async fn command_should_succeed(_world: &mut SpecwriterWorld, command: String) {
+    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    let output = tokio::process::Command::new(parts[0])
+        .args(&parts[1..])
+        .current_dir(&workspace_root)
+        .output()
+        .await
+        .unwrap_or_else(|e| panic!("Failed to run '{}': {}", command, e));
+    assert!(
+        output.status.success(),
+        "'{}' failed:\n{}",
+        command,
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[then(expr = "the nix build output should contain a {string} binary")]
+async fn nix_output_contains_binary(_world: &mut SpecwriterWorld, name: String) {
+    let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .to_path_buf();
+    let binary = workspace_root.join("result").join("bin").join(&name);
+    assert!(
+        binary.exists(),
+        "Expected binary at {:?} but it doesn't exist",
+        binary
+    );
+}
+
 #[tokio::main]
 async fn main() {
     SpecwriterWorld::run("features").await;
