@@ -23,6 +23,9 @@
           version = "0.1.0";
           src = ./.;
           cargoLock.lockFile = ./Cargo.lock;
+          cargoBuildFlags = [ "--package" "specwriter" ];
+          # BDD tests require mock scripts and a writable filesystem — run them via `cargo test` in devShell instead
+          doCheck = false;
         };
 
         devShells.default = pkgs.mkShell {
