@@ -195,6 +195,40 @@ async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: Strin
     );
 }
 
+#[then(expr = "the status indicator should be {word}")]
+async fn status_indicator_color(world: &mut SpecwriterWorld, expected_color: String) {
+    let actual = world.runner().status_indicator_color_name();
+    assert!(
+        actual == expected_color,
+        "Expected status indicator to be '{}', but got '{}'",
+        expected_color,
+        actual
+    );
+}
+
+#[when("time passes")]
+async fn time_passes(world: &mut SpecwriterWorld) {
+    // Advance several animation frames
+    for _ in 0..15 {
+        world.runner().tick();
+    }
+}
+
+#[then("the status indicator should have animated")]
+async fn indicator_should_have_animated(world: &mut SpecwriterWorld) {
+    let runner = world.runner();
+    let before = runner.status_indicator_snapshot();
+    for _ in 0..5 {
+        runner.tick();
+    }
+    let after = runner.status_indicator_snapshot();
+    assert!(
+        before != after,
+        "Status indicator should have animated, but stayed the same: {}",
+        before
+    );
+}
+
 #[then(expr = "{string} should succeed")]
 async fn command_should_succeed(_world: &mut SpecwriterWorld, command: String) {
     let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))

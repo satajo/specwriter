@@ -2,10 +2,17 @@ pub mod integrator;
 pub mod ui;
 
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use ratatui::{backend::TestBackend, Terminal};
+use ratatui::{backend::TestBackend, style::Color, Terminal};
 use tokio::sync::mpsc;
 
 use integrator::{IntegratorConfig, IntegratorHandle, IntegratorMessage};
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum AppState {
+    Idle,
+    Integrating,
+    Error,
+}
 
 #[derive(Debug)]
 pub struct App {
@@ -13,6 +20,8 @@ pub struct App {
     pub cursor_pos: usize,
     pub questions: Vec<String>,
     pub status: String,
+    pub state: AppState,
+    pub tick: u64,
     pub integrator: IntegratorHandle,
     pub should_quit: bool,
 }
@@ -24,9 +33,15 @@ impl App {
             cursor_pos: 0,
             questions: Vec::new(),
             status: "Ready. Type your requirements and press Ctrl+S to submit.".into(),
+            state: AppState::Idle,
+            tick: 0,
             integrator,
             should_quit: false,
         }
+    }
+
+    pub fn tick(&mut self) {
+        self.tick = self.tick.wrapping_add(1);
     }
 
     pub fn with_default_integrator() -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
@@ -51,13 +66,21 @@ impl App {
         self.integrator.send(text);
         self.input.clear();
         self.cursor_pos = 0;
-        self.status = "Submitted. Integrating...".into();
+        self.state = AppState::Integrating;
+        self.status = "Integrating...".into();
     }
 
     pub fn update_from_integrator(&mut self, msg: IntegratorMessage) {
         match msg {
             IntegratorMessage::QuestionsUpdated(q) => self.questions = q,
-            IntegratorMessage::StatusUpdate(s) => self.status = s,
+            IntegratorMessage::StatusUpdate(s) => {
+                if s.contains("Error") {
+                    self.state = AppState::Error;
+                } else if s.contains("complete") {
+                    self.state = AppState::Idle;
+                }
+                self.status = s;
+            }
         }
     }
 
@@ -325,5 +348,51 @@ impl AppRunner {
     pub fn screen_contains(&mut self, needle: &str) -> bool {
         let screen = self.render();
         screen.contains(needle)
+    }
+
+    /// Advance the animation tick counter.
+    pub fn tick(&mut self) {
+        self.app.tick();
+    }
+
+    /// Get the status indicator's rendered color name ("blue", "yellow", "red", or "unknown").
+    pub fn status_indicator_color_name(&mut self) -> String {
+        self.terminal
+            .draw(|f| ui::draw(f, &self.app))
+            .unwrap();
+        let buf = self.terminal.backend().buffer().clone();
+        // The indicator icon is at column 2, row 1 (inside the status bar border, after leading space)
+        let cell = &buf[(2, 1)];
+        match cell.fg {
+            Color::Yellow | Color::LightYellow => "yellow".into(),
+            Color::Red | Color::LightRed => "red".into(),
+            Color::Green | Color::LightGreen => "green".into(),
+            Color::Blue | Color::LightBlue => "blue".into(),
+            Color::Rgb(r, g, b) if g > r && g > b => "green".into(),
+            Color::Rgb(r, g, b) if b > r && b > g => "blue".into(),
+            Color::Rgb(r, g, _) if r > 200 && g > 200 => "yellow".into(),
+            Color::Rgb(r, _g, b) if r > 128 && b < 80 => "red".into(),
+            other => format!("unknown({:?})", other),
+        }
+    }
+
+    /// Get the status indicator's rendered symbol.
+    pub fn status_indicator_symbol(&mut self) -> String {
+        self.terminal
+            .draw(|f| ui::draw(f, &self.app))
+            .unwrap();
+        let buf = self.terminal.backend().buffer().clone();
+        buf[(2, 1)].symbol().to_string()
+    }
+
+    /// Get a snapshot of the indicator's visual state (symbol + raw fg color debug string)
+    /// for animation comparison.
+    pub fn status_indicator_snapshot(&mut self) -> String {
+        self.terminal
+            .draw(|f| ui::draw(f, &self.app))
+            .unwrap();
+        let buf = self.terminal.backend().buffer().clone();
+        let cell = &buf[(2, 1)];
+        format!("{}|{:?}", cell.symbol(), cell.fg)
     }
 }

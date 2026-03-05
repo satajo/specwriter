@@ -19,11 +19,12 @@ async fn main() -> anyhow::Result<()> {
 
     let (mut app, mut ui_rx) = App::with_default_integrator();
     let mut events = EventStream::new();
+    let mut tick_interval = tokio::time::interval(std::time::Duration::from_millis(100));
 
     loop {
         terminal.draw(|f| specwriter::ui::draw(f, &app))?;
 
-        // Wait for either a key event or an integrator message — no blocking
+        // Wait for either a key event, an integrator message, or an animation tick
         tokio::select! {
             event = events.next() => {
                 if let Some(Ok(Event::Key(key))) = event {
@@ -34,6 +35,9 @@ async fn main() -> anyhow::Result<()> {
                 if let Some(msg) = msg {
                     app.update_from_integrator(msg);
                 }
+            }
+            _ = tick_interval.tick() => {
+                app.tick();
             }
         }
 

@@ -1,6 +1,25 @@
 use ratatui::{prelude::*, widgets::*};
 
-use crate::App;
+use crate::{App, AppState};
+
+// ◰ ◳ ◲ ◱ — small square rotating through corners
+const SPINNER_FRAMES: &[&str] = &["\u{25f0}", "\u{25f3}", "\u{25f2}", "\u{25f1}"];
+const SPINNER_TICKS_PER_FRAME: u64 = 3; // advance every 300ms for a calm pace
+
+fn status_indicator(app: &App) -> (&str, Style) {
+    match app.state {
+        AppState::Integrating => {
+            let frame = ((app.tick / SPINNER_TICKS_PER_FRAME) as usize) % SPINNER_FRAMES.len();
+            (SPINNER_FRAMES[frame], Style::default().fg(Color::Yellow))
+        }
+        AppState::Idle => {
+            ("\u{25f3}", Style::default().fg(Color::Green)) // ◳
+        }
+        AppState::Error => {
+            ("\u{25f1}", Style::default().fg(Color::Red)) // ◱
+        }
+    }
+}
 
 pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
@@ -13,8 +32,13 @@ pub fn draw(f: &mut Frame, app: &App) {
         ])
         .split(f.area());
 
-    // Status bar
-    let status = Paragraph::new(app.status.as_str())
+    // Status bar with animated indicator
+    let (icon, icon_style) = status_indicator(app);
+    let status_line = Line::from(vec![
+        Span::styled(format!(" {} ", icon), icon_style),
+        Span::raw(&app.status),
+    ]);
+    let status = Paragraph::new(status_line)
         .block(Block::default().borders(Borders::ALL).title(" Status "));
     f.render_widget(status, chunks[0]);
 
