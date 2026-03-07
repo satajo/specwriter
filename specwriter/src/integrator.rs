@@ -22,7 +22,6 @@ impl Default for IntegratorConfig {
             command: "claude".into(),
             args: vec![
                 "--print".into(),
-                "--no-user-hooks".into(),
                 "--allowedTools".into(),
                 "Edit,Read".into(),
                 "-p".into(),
@@ -230,6 +229,7 @@ async fn run_command(config: &IntegratorConfig, prompt: &str) -> Result<String, 
         .args(&config.args)
         .arg(prompt)
         .current_dir(&config.working_dir)
+        .env("CLAUDE_CODE_SIMPLE", "1")
         .stdin(std::process::Stdio::null())
         .output()
         .await
