@@ -77,22 +77,21 @@ async fn integrator_loop(
         let mut i = 0;
         let mut errored = false;
         while i < queue.len() {
-            // Check for new messages before each step
+            // Drain any messages that arrived since last iteration
             while let Ok(msg) = rx.try_recv() {
                 queue.push(msg);
             }
 
-            let total = queue.len();
-            let status = if total >= 2 {
-                format!("Integrating {}/{}...", i + 1, total)
+            let waiting = queue.len() - i - 1;
+            let status = if waiting > 0 {
+                format!("Integrating ({} in queue)...", waiting)
             } else {
                 "Integrating...".into()
             };
             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
 
             // Create empty SPEC.md if it doesn't exist (app owns file creation, not CLI)
-            let has_spec = spec_path.exists();
-            if !has_spec {
+            if !spec_path.exists() {
                 if let Err(e) = std::fs::write(&spec_path, "") {
                     let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!(
                         "Error: Failed to create SPEC.md: {e}"
@@ -196,7 +195,25 @@ QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
                 )
             };
 
-            match run_command(&config, &prompt).await {
+            // Run command while monitoring for new submissions
+            let command_future = run_command(&config, &prompt);
+            tokio::pin!(command_future);
+
+            let result = loop {
+                tokio::select! {
+                    result = &mut command_future => break result,
+                    msg = rx.recv() => {
+                        if let Some(msg) = msg {
+                            queue.push(msg);
+                            let waiting = queue.len() - i - 1;
+                            let status = format!("Integrating ({} in queue)...", waiting);
+                            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
+                        }
+                    }
+                }
+            };
+
+            match result {
                 Ok(output) => {
                     let raw_questions = parse_questions(&output);
                     current_questions = raw_questions
@@ -208,6 +225,8 @@ QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
                     let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(current_questions.clone()));
                 }
                 Err(e) => {
+                    // Discard all remaining queued items
+                    while let Ok(_) = rx.try_recv() {}
                     let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
                     errored = true;
                     break;

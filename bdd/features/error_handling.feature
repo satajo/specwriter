@@ -19,3 +19,13 @@ Feature: Error Handling
     And I press Ctrl+S
     And I wait for integration to complete
     Then the screen should show "Error"
+
+  Scenario: Submitting new input recovers from error
+    Given the specwriter is running with a failing mock command
+    When I type "Something"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Error"
+    When I type "Try again"
+    And I press Ctrl+S
+    Then the screen should show "Integrating"
