@@ -22,18 +22,19 @@ current state of the user's intent.
 - The user types into a TUI input area and presses Ctrl+S to submit
 - Each submission triggers a background call to the Claude CLI, which reads the
   existing spec, interprets the user's message, and integrates it into the spec files
-  under `spec/`
-- `spec/README.md` is the primary entrypoint; additional files may be created as the
+  under `specs/`
+- `specs/README.md` is the primary entrypoint; additional files may be created as the
   knowledge base grows
 - Clarifying questions are placed at the end of spec files under a `## Questions`
-  heading (in `Q{id}: {text}` format) and surfaced in the UI to guide the user's
+  heading, each as a `###` subheading (e.g., `### Q3 (p7): Short title`) with the
+  question body as prose underneath. They are surfaced in the UI to guide the user's
   thinking
 - Multiple rapid submissions are queued and processed sequentially
 - The UI shows integration status and queue depth
 - Empty or whitespace-only input is ignored — submitting it does nothing
 - The input area is cleared immediately after submission, freeing the user to type
   their next thought while the current one integrates
-- The `spec/` directory is not created at launch — it comes into existence when the
+- The `specs/` directory is not created at launch — it comes into existence when the
   first submission is integrated
 
 ## UI layout
@@ -117,17 +118,21 @@ the Ready state with no open questions.
 - **Question-driven**: The system generates clarifying questions embedded in the spec
   to surface gaps, ambiguities, or contradictions. These help the user think through
   their requirements without requiring them to be exhaustive upfront. Questions are
-  placed at the end of each spec file under a `## Questions` heading, formatted as
-  `Q<number>: <question text>` with each question in its own paragraph. This keeps
-  questions out of the way of the human reader while still being part of the spec
-  files. Questions have stable numeric identifiers (Q1, Q2, ...) that persist across
-  integrations. New questions continue from the highest existing ID. Answered or
-  irrelevant questions are removed. The pool is capped at 9 questions to keep the list
-  manageable. Each question is assigned a **priority** (1–9, where 1 = low and
-  9 = high) so the user can focus on the most impactful questions first, enabling more
-  efficient information gathering. Priority is based on two factors: how critical it
-  is that this specific question gets answered, and how much new information about the
-  spec would be gained from an answer.
+  placed at the end of each spec file under a `## Questions` heading. Each question
+  is a `###` subheading with the format `### Q<number> (p<priority>): <title>`,
+  followed by the question body as prose underneath. This structure supports
+  multi-line questions naturally — the title gives a scannable summary, and the body
+  can elaborate as needed. The parser collects all body text until the next `###`
+  heading or end of file. This keeps questions out of the way of the human reader
+  while still being part of the spec files. Questions have stable numeric identifiers
+  (Q1, Q2, ...) that persist across integrations. New questions continue from the
+  highest existing ID. Answered or irrelevant questions are removed. The pool is
+  capped at 9 questions to keep the list manageable. Each question is assigned a
+  **priority** (1–9, where 1 = low and 9 = high) so the user can focus on the most
+  impactful questions first, enabling more efficient information gathering. Priority
+  is based on two factors: how critical it is that this specific question gets
+  answered, and how much new information about the spec would be gained from an
+  answer.
 - **Single-session**: Specwriter is designed for use within a single session. There is
   no built-in collaboration or multi-user support. However, since the spec files are
   plain Markdown, users can share them through normal means (e.g., committing to Git)
@@ -140,7 +145,7 @@ the Ready state with no open questions.
   gratuitously hard to swap in another backend in the future.
 - **Read-only project access**: When calling the underlying AI agent, the specwriter
   must ensure the agent has only read access to the project — no writes — with the
-  sole exception of the `spec/` directory, where the agent must be allowed to write.
+  sole exception of the `specs/` directory, where the agent must be allowed to write.
 - **Token efficiency**: Specwriter should not consume unnecessarily many tokens. For
   the Claude Code CLI specifically, this means using a single session for the
   integrator — started on the first integration and resumed on subsequent ones using
@@ -150,7 +155,7 @@ the Ready state with no open questions.
   targeted at a directory that already contains spec files, it simply operates on
   them — reading the existing content and integrating new input as usual. On startup,
   any existing questions in the spec files are displayed, but no new questions are
-  generated until the user submits input. Starting from scratch (empty `spec/`
+  generated until the user submits input. Starting from scratch (empty `specs/`
   directory) is the default case.
 
 ## Formatting
@@ -161,3 +166,33 @@ readable in terminals and when viewed in raw format.
 ## Packaging
 
 Specwriter is packaged as a Nix flake that produces a `specwriter` binary.
+
+## Questions
+
+### Q1 (p7): UI overflow and scrolling behavior
+
+Should specwriter support scrolling in the Open Questions panel or the input area when content
+exceeds the visible area? Currently the spec doesn't address overflow behavior for any UI panel.
+
+### Q2 (p6): Quit-during-integration behavior
+
+When the user quits with Ctrl+C while an integration is in progress, should the app wait for the
+current integration to finish, kill it immediately, or offer a choice?
+
+### Q4 (p5): Session expiry handling
+
+The spec says the integrator uses `--session-id` and `--resume` for token efficiency. What should
+happen if the Claude CLI session expires or becomes invalid mid-session? Should specwriter detect
+this and start a fresh session, or surface it as an error?
+
+### Q5 (p4): Target directory configuration
+
+Should specwriter accept a target directory as a command-line argument, or does it always operate
+in the current working directory? The spec says "current project directory" but doesn't specify
+how that's determined.
+
+### Q6 (p4): Agent read access scope
+
+The implementation passes `--allowedTools Edit,Read,Write` to the Claude CLI, but the `Read` tool
+gives the agent read access to the entire filesystem, not just the project. Is this intentional,
+or should the agent's read access be scoped to the project directory?

@@ -4,7 +4,7 @@
 
 PROMPT="${@: -1}"
 WORKDIR="$(pwd)"
-SPEC_DIR="$WORKDIR/spec"
+SPEC_DIR="$WORKDIR/specs"
 README="$SPEC_DIR/README.md"
 
 # Delay to allow multiple messages to queue up
@@ -24,6 +24,6 @@ fi
 echo "$PROMPT" | grep -qi "search" && echo "search" >> "$README"
 echo "$PROMPT" | grep -qi "filter" && echo "filtering" >> "$README"
 
-printf '\n## Questions\n\nQ1: What are the requirements?\n' >> "$README"
+printf '\n## Questions\n\n### Q1 (p5): What are the requirements?\n\nPlease elaborate.\n' >> "$README"
 
 echo "I have integrated the requirements."

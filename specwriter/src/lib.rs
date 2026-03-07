@@ -53,7 +53,7 @@ impl App {
         config: IntegratorConfig,
     ) -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
-        let initial_questions = integrator::scan_questions(&config.working_dir.join("spec"));
+        let initial_questions = integrator::scan_questions(&config.working_dir.join("specs"));
         let integrator = IntegratorHandle::new(ui_tx, config);
         let mut app = Self::new(integrator);
         app.questions = initial_questions;

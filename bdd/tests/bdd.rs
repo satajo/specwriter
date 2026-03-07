@@ -167,7 +167,7 @@ async fn running_with_prioritized_mock(world: &mut SpecwriterWorld) {
 #[given(expr = "the spec README already contains {string}")]
 async fn spec_readme_already_contains(world: &mut SpecwriterWorld, content: String) {
     let content = content.replace("\\n", "\n");
-    let spec_dir = world.workdir_path().join("spec");
+    let spec_dir = world.workdir_path().join("specs");
     std::fs::create_dir_all(&spec_dir).unwrap();
     std::fs::write(spec_dir.join("README.md"), content).unwrap();
 }
@@ -204,19 +204,19 @@ async fn wait_for_status(world: &mut SpecwriterWorld, needle: String) {
 
 #[then("the spec README should exist")]
 async fn spec_readme_exists(world: &mut SpecwriterWorld) {
-    let path = world.workdir_path().join("spec").join("README.md");
+    let path = world.workdir_path().join("specs").join("README.md");
     assert!(path.exists(), "spec/README.md should exist at {:?}", path);
 }
 
 #[then("the spec directory should not exist")]
 async fn spec_dir_not_exists(world: &mut SpecwriterWorld) {
-    let path = world.workdir_path().join("spec");
+    let path = world.workdir_path().join("specs");
     assert!(!path.exists(), "spec/ should NOT exist at {:?}", path);
 }
 
 #[then(expr = "the spec should contain {string}")]
 async fn spec_contains(world: &mut SpecwriterWorld, expected: String) {
-    let spec_dir = world.workdir_path().join("spec");
+    let spec_dir = world.workdir_path().join("specs");
     assert!(
         search_spec_files(&spec_dir, &expected),
         "No spec file contains '{}'",
