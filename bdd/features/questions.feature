@@ -1,7 +1,7 @@
 Feature: Question Generation
   As a user writing requirements
-  I want the integrator to surface clarifying questions
-  So that I can think about gaps in my specification
+  I want the integrator to surface clarifying questions with stable identifiers
+  So that I can track and return to questions I'm considering
 
   Background:
     Given a clean working directory
@@ -14,7 +14,21 @@ Feature: Question Generation
     Then the screen should show "Q1."
     And the screen should not show "No open questions"
 
-  Scenario: Question numbers increase across integrations
+  Scenario: Questions retain identifiers across integrations
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+    When I type "Add a dashboard"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+
+  Scenario: New questions get identifiers continuing from the highest existing
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
@@ -25,25 +39,28 @@ Feature: Question Generation
     And I press Ctrl+S
     And I wait for integration to complete
     Then the screen should show "Q4."
-    And the screen should show "Q5."
-    And the screen should not show "Q1."
+    And the screen should not show "Q3."
 
-  Scenario: Questions are replaced each integration
+  Scenario: Answered questions are removed while unrelated questions persist
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "What are the authentication requirements?"
-    When I type "Users need to search for products"
+    Then the screen should show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+    When I type "We will use OAuth2 for authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "What search fields are needed?"
-    And the screen should not show "What are the authentication requirements?"
+    Then the screen should not show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+    And the screen should show "Q4."
 
   Scenario: Open questions are provided as context to the integrator
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "What are the authentication requirements?"
+    Then the screen should show "Q1."
     When I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
@@ -55,3 +72,18 @@ Feature: Question Generation
     And I press Ctrl+S
     And I wait for integration to complete
     Then the screen should show "No open questions"
+
+  Scenario: Pool unchanged when input produces no new questions
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+    When I type "Add a dashboard"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+    And the screen should show "What are the authentication requirements?"

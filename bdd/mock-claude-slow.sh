@@ -36,4 +36,4 @@ if echo "$PROMPT" | grep -qi "filter"; then
 fi
 
 echo "I have integrated the requirements into SPEC.md."
-echo 'QUESTIONS:["What are the requirements?"]'
+echo 'QUESTIONS:[{"id":1,"text":"What are the requirements?"}]'
