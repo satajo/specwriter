@@ -168,6 +168,21 @@ async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
 }
 
 
+#[given("the specwriter is running with a silent-fail mock command")]
+async fn running_with_silent_fail_mock(world: &mut SpecwriterWorld) {
+    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = IntegratorConfig {
+        command: bdd_dir
+            .join("mock-claude-silent-fail.sh")
+            .to_string_lossy()
+            .into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
+    };
+    world.start_with_config(config);
+}
+
 #[given("the specwriter is running with a nine-questions mock")]
 async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
     let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));

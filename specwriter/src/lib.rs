@@ -43,7 +43,7 @@ pub struct App {
     pub answer_dialog: Option<AnswerDialog>,
     pub input_scroll: u16,
     pub detail_scroll: u16,
-    pub quit_pending: bool,
+    pub quit_dialog: bool,
 }
 
 impl App {
@@ -62,7 +62,7 @@ impl App {
             answer_dialog: None,
             input_scroll: 0,
             detail_scroll: 0,
-            quit_pending: false,
+            quit_dialog: false,
         }
     }
 
@@ -99,11 +99,12 @@ impl App {
     }
 
     pub fn submit_answer(&mut self) {
-        if let Some(dialog) = self.answer_dialog.take() {
+        if let Some(ref dialog) = self.answer_dialog {
             let text = dialog.input.trim().to_string();
             if text.is_empty() {
                 return;
             }
+            let dialog = self.answer_dialog.take().unwrap();
             let message = format!(
                 "The answer to question Q{} ({}) is: {}",
                 dialog.question.id, dialog.question.text, text
@@ -123,16 +124,29 @@ impl App {
     pub fn update_from_integrator(&mut self, msg: IntegratorMessage) {
         match msg {
             IntegratorMessage::QuestionsUpdated(q) => {
+                // Preserve focus by question ID
+                let focused_id = self.questions.get(self.question_focus).map(|q| q.id);
+                let old_focus = self.question_focus;
                 self.questions = q;
-                // Clamp focus index
-                if !self.questions.is_empty() && self.question_focus >= self.questions.len() {
+                if let Some(id) = focused_id {
+                    if let Some(pos) = self.questions.iter().position(|q| q.id == id) {
+                        self.question_focus = pos;
+                    } else {
+                        // Focused question removed — try same index (next), then previous
+                        if !self.questions.is_empty() {
+                            self.question_focus = old_focus.min(self.questions.len() - 1);
+                        } else {
+                            self.question_focus = 0;
+                        }
+                    }
+                } else if !self.questions.is_empty() && self.question_focus >= self.questions.len() {
                     self.question_focus = self.questions.len() - 1;
                 }
             }
             IntegratorMessage::IntegrationComplete => {
                 self.state = AppState::Idle;
                 self.status = "Idle.".into();
-                self.quit_pending = false;
+                self.quit_dialog = false;
             }
             IntegratorMessage::StatusUpdate(s) => {
                 if s.contains("Error") {
@@ -144,15 +158,30 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
+        // Quit confirmation dialog modal
+        if self.quit_dialog {
+            match key {
+                KeyEvent {
+                    code: KeyCode::Char('c'),
+                    modifiers: KeyModifiers::CONTROL,
+                    ..
+                } => {
+                    self.should_quit = true;
+                }
+                KeyEvent {
+                    code: KeyCode::Esc, ..
+                } => {
+                    self.quit_dialog = false;
+                }
+                _ => {}
+            }
+            return;
+        }
+
         // Ctrl+C quit handling
         if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
             if self.state == AppState::Integrating {
-                if self.quit_pending {
-                    self.should_quit = true;
-                } else {
-                    self.quit_pending = true;
-                    self.status = "Integration in progress. Press Ctrl+C again to quit.".into();
-                }
+                self.quit_dialog = true;
             } else {
                 self.should_quit = true;
             }

@@ -321,7 +321,15 @@ async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(format!("{} exited with error: {stderr}", config.command));
+        let first_line = stderr.lines().next().unwrap_or("").trim();
+        let description = if !first_line.is_empty() {
+            first_line.to_string()
+        } else if let Some(code) = output.status.code() {
+            format!("Exit code {} with no message", code)
+        } else {
+            "Unknown reason".to_string()
+        };
+        return Err(description);
     }
 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())

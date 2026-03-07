@@ -61,21 +61,26 @@ redundancy between the tab label and any heading or border title on the view it 
 All text input areas (the main input, the answer dialog, etc.) should have 1 character of
 left padding so text doesn't sit flush against the border.
 
-The tabs should use the ratatui `Tabs` widget, which integrates cleanly with the
-block borders of the content area below.
+The tabs should use the ratatui `Tabs` widget. The tab bar itself is a standalone
+row with no borders. Each tab's content is responsible for drawing its own borders —
+the tab bar does not provide a shared bordered container. This means different tabs
+can have different visual structures (e.g., the Text Input tab draws a single bordered
+box, while the Open Questions tab draws two separate bordered boxes for the list and
+detail panels).
 
 The screen shows these areas top to bottom:
 - **Status** — the current application state (see below); displayed as plain text
   with no border or box around it; no extra left padding — it aligns with the panel
   borders below it
 - *(one empty line of spacing)*
-- **Tab bar + content** — the ratatui `Tabs` component renders the tab bar, which
-  visually integrates with the bordered content area below it; the active tab is
-  highlighted by inverting its foreground and background colors
+- **Tab bar + content** — the ratatui `Tabs` component renders the tab bar as a
+  standalone row; the content area below it is unbordered at the tab level — each
+  tab's content draws its own borders as needed; the active tab is highlighted by
+  inverting its foreground and background colors
 - **Help bar** — a single line at the bottom showing available keyboard shortcuts;
-  the help bar is context-sensitive, adapting its content to the current mode (e.g.,
-  showing different shortcuts for the Text Input tab, Open Questions tab, and answer
-  dialog)
+  the help bar is always context-sensitive, adapting its content to the current mode.
+  This includes the Text Input tab, Open Questions tab, answer dialog, and quit
+  confirmation dialog — each shows its own relevant shortcuts
 
 ### Scrolling
 
@@ -93,35 +98,60 @@ corrections, or responses and submits them for integration. All textarea inputs
 (main input, answer dialog, etc.) must correctly handle long lines that soft-wrap
 at the edge of the widget — the caret position must remain accurate after wrapping.
 
-When the text input is empty, it displays placeholder text in a dimmed color, inviting
-the user to type something and press Ctrl+S to submit.
+When the text input is empty, it displays placeholder text in a dimmed color:
+"Type your requirements here. Ctrl+S to submit."
 
 ### Open Questions tab
 
 A list of clarifying questions from the spec, sorted by priority from high to low.
 Each question displays its priority after the question number (e.g., "Q3 (p7): ...")
 and the name of the spec file it comes from, giving the user context for what area
-the question relates to.
+the question relates to. When the question list is refreshed after an integration,
+the UI preserves focus on the same question (matched by question ID). If the
+previously focused question no longer exists, focus falls back using the same rules
+as after answering: next question, then previous, then empty state.
 
 The user browses questions with arrow keys (up/down). The focused question is
-highlighted, and its full content is shown in a separate panel below the list.
+highlighted, and its full content is shown in a separate detail box below the
+question list. The question list and the detail box are visually distinct — each
+draws its own bordered box. The tab container itself should not draw borders;
+instead, the content panels (question list and question detail) each draw their
+own borders. This means the detail box is "outside" the tab's visual container,
+appearing as a peer-level box rather than a sub-panel nested inside the list. The
+vertical space is split 50/50 between the question list and the detail box. The
+detail box is only shown when a question is selected — if there are no questions,
+only the list box is displayed (taking the full content area).
 
 Pressing Enter on a focused question opens a dialog where the user can type an answer.
 On submission, the answer is sent to the integrator with the relevant context (e.g.,
 "The answer to question Q3 is: ..."). The answered question is immediately removed from
 the open questions list in the UI, giving the user clear feedback that their answer went
-through. This gives the user a direct, structured way to answer questions without having
-to reference question IDs in free-form text.
+through. After removal, focus moves to the next question in the list (the one that was
+below the answered question). The rationale is that if the user scrolled past earlier
+questions, they weren't interested in answering those right now. If there is no next
+question, focus moves to the previous one. If the list is now empty, the tab shows the
+empty-list state. This gives the user a direct, structured way to answer questions
+without having to reference question IDs in free-form text.
 
-If there are no open questions, the tab shows "No open questions."
+If there are no open questions, the tab shows a full-height bordered list box
+containing "No open questions." — no detail box is shown.
 
 ## Keyboard shortcuts
 
 ### Global
 
-- **Ctrl+C** — quit the application; if an integration is in progress, a confirmation
-  dialog is shown and the user must press Ctrl+C again to confirm the exit
+- **Ctrl+C** — quit the application. If the app is idle, it quits immediately. If
+  an integration is in progress, a confirmation pop-up dialog is shown (similar in
+  style to the answer dialog) with the border title "Confirm Quit" and body text
+  "Integration in progress. Press Ctrl+C again to quit." The user presses Ctrl+C
+  again to confirm, or Esc to dismiss the dialog and cancel the quit. On confirmed
+  exit, any in-progress integration is stopped immediately and any queued submissions
+  are silently discarded — nothing continues running in the background
 - **Tab** — switch between Text Input and Open Questions tabs
+
+When a pop-up dialog is open (answer dialog, quit confirmation, etc.), it captures
+all input — global shortcuts like Tab are ignored. The dialog must be explicitly
+dismissed (via Esc or its own submit/confirm action) before normal navigation resumes.
 
 ### Text Input tab
 
@@ -138,7 +168,11 @@ If there are no open questions, the tab shows "No open questions."
 
 ### Answer dialog
 
-- **Ctrl+S** — submit the answer
+The answer dialog also displays placeholder text in a dimmed color when empty:
+"Type your answer here. Ctrl+S to submit."
+
+- **Ctrl+S** — submit the answer; empty or whitespace-only input is ignored (same
+  as the main text input)
 - **Esc** — cancel and close the dialog
 - **Enter** — insert a newline
 - Standard text editing keys (arrows, Home/End, Backspace/Delete)
@@ -174,7 +208,10 @@ the Ready state with no open questions.
 ## Error handling
 
 - If the integrator command is not found or exits with an error, the status line
-  shows `Error! <description>` in red with a one-line summary of the failure
+  shows `Error! <description>` in red. The description is the first line of the
+  CLI's stderr output. If stderr is empty, the fallback is "Exit code N with no
+  message" (where N is the process exit code). If neither an exit code nor stderr
+  is available, the description is "Unknown reason".
 - When an error occurs, any remaining queued submissions are discarded
 - The user can recover by simply submitting new input — no restart is needed
 
@@ -272,16 +309,15 @@ Specwriter is packaged as a Nix flake that produces a `specwriter` binary.
 
 ## Questions
 
-### Q5 (p4): Error description source
+### Q22 (p3): Ctrl+C inside answer dialog
 
-The error state displays `Error! <description>` with a one-line summary. When the Claude CLI fails, what
-should the description contain — the CLI's stderr output (possibly truncated), a generic message like
-"Integration failed", or something else? Different failure modes (command not found, non-zero exit, timeout)
-might warrant different descriptions.
+When the answer dialog is open and the user presses Ctrl+C, should it close the dialog (treating it like
+Esc), quit the app, or do nothing? Since pop-up dialogs capture all input, Ctrl+C's normal quit behavior
+would be blocked — but Ctrl+C might feel natural as a "cancel" action to some users.
 
-### Q6 (p3): Quit confirmation UX
+### Q23 (p3): Question list scroll position after integration
 
-When Ctrl+C is pressed during an active integration, a confirmation dialog is shown. What should this dialog
-look like — a modal overlay, an inline message in the status line, or something else? And should the in-progress
-integration be cancelled immediately on the second Ctrl+C, or allowed to finish in the background?
+When an integration completes and the question list is refreshed, the spec says focus is preserved by
+question ID. Should the scroll position also be preserved (keeping the viewport roughly where it was), or
+is it acceptable for the list to re-center on the focused item using the standard center-focused scrolling?
 

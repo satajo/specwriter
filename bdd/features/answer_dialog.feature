@@ -36,3 +36,36 @@ Feature: Answer Dialog
     And I press Ctrl+S
     Then the screen should not show "Q1 (p8)"
     And the screen should show "Q2 (p5)"
+
+  Scenario: Answer dialog shows placeholder text when empty
+    When I switch to the questions tab
+    And I press Enter
+    Then the screen should show "Type your answer here. Ctrl+S to submit."
+
+  Scenario: Answer dialog placeholder disappears when typing
+    When I switch to the questions tab
+    And I press Enter
+    And I type "x"
+    Then the screen should not show "Type your answer here"
+
+  Scenario: Empty answer submission is ignored
+    When I switch to the questions tab
+    And I press Enter
+    And I press Ctrl+S
+    Then the screen should show "Answer Q1"
+    And the screen should show "Idle."
+
+  Scenario: Focus moves to next question after answering
+    When I switch to the questions tab
+    Then the screen should show "Q1 (p8)"
+    When I press Enter
+    And I type "OAuth2"
+    And I press Ctrl+S
+    Then the screen should show "Q2 (p5)"
+    And the detail panel should show "Q2 (p5): Target platform?"
+
+  Scenario: Tab is blocked during answer dialog
+    When I switch to the questions tab
+    And I press Enter
+    And I press Tab
+    Then the screen should show "Answer Q1"

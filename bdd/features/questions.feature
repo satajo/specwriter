@@ -83,6 +83,36 @@ Feature: Question Generation
     And I switch to the questions tab
     Then the screen should show "No open questions"
 
+  Scenario: Focus preserved by question ID after integration refresh
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    And I switch to the questions tab
+    And I press Down
+    Then the detail panel should show "Q2 (p6)"
+    When I switch to the text input tab
+    And I type "Add a dashboard"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    And I switch to the questions tab
+    Then the detail panel should show "Q2 (p6)"
+
+  Scenario: Focus falls back after focused question is removed by integration
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    And I switch to the questions tab
+    And I press Down
+    And I press Down
+    Then the detail panel should show "Q3 (p4)"
+    When I switch to the text input tab
+    And I type "Users need to search for products"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    And I switch to the questions tab
+    Then the screen should not show "Q3 (p4)."
+    And the detail panel should show "Q4 (p5)"
+
   Scenario: Pool unchanged when input produces no new questions
     When I type "The app needs user authentication"
     And I press Ctrl+S
