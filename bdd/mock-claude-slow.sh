@@ -4,36 +4,27 @@
 
 PROMPT="${@: -1}"
 WORKDIR="$(pwd)"
-SPEC="$WORKDIR/SPEC.md"
+SPEC_DIR="$WORKDIR/spec"
+README="$SPEC_DIR/README.md"
 
 # Delay to allow multiple messages to queue up
 sleep 0.3
 
-# Simple mock: create/update SPEC.md based on the prompt content
-if [ -f "$SPEC" ]; then
-    EXISTING=$(cat "$SPEC")
-    cat > "$SPEC" << EOF
-$EXISTING
+mkdir -p "$SPEC_DIR"
 
----
-
-Updated with new requirements from the latest integration.
-EOF
+# Create or update base content
+if [ -f "$README" ] && [ -s "$README" ]; then
+    EXISTING=$(grep -v "^?Q" "$README" || true)
+    printf '%s\n\n---\n\nUpdated with new requirements.\n' "$EXISTING" > "$README"
 else
-    cat > "$SPEC" << EOF
-# Spec
-
-Requirements integrated from user input.
-EOF
+    printf '# Spec\n\nRequirements integrated from user input.\n' > "$README"
 fi
 
-# Extract keywords from the prompt to make SPEC.md somewhat reflective
-if echo "$PROMPT" | grep -qi "search"; then
-    echo "search" >> "$SPEC"
-fi
-if echo "$PROMPT" | grep -qi "filter"; then
-    echo "filtering" >> "$SPEC"
-fi
+# Extract keywords
+echo "$PROMPT" | grep -qi "search" && echo "search" >> "$README"
+echo "$PROMPT" | grep -qi "filter" && echo "filtering" >> "$README"
 
-echo "I have integrated the requirements into SPEC.md."
-echo 'QUESTIONS:[{"id":1,"text":"What are the requirements?"}]'
+echo "" >> "$README"
+echo "?Q1: What are the requirements?" >> "$README"
+
+echo "I have integrated the requirements."

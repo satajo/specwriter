@@ -22,8 +22,8 @@ Feature: Queue Progress
     And I wait for status to contain "in queue"
     Then the screen should show "Integrating (1 in queue)..."
     When I wait for all integrations to finish
-    Then SPEC.md should contain "search"
-    And SPEC.md should contain "filter"
+    Then the spec should contain "search"
+    And the spec should contain "filtering"
     And the screen should show "Ready"
 
   Scenario: Queue count updates immediately on new submission

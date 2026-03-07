@@ -1,7 +1,7 @@
 use cucumber::{given, then, when, World};
 use specwriter::integrator::IntegratorConfig;
 use specwriter::AppRunner;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
 const SCREEN_WIDTH: u16 = 100;
@@ -34,6 +34,35 @@ impl SpecwriterWorld {
         let runner = AppRunner::new(config, SCREEN_WIDTH, SCREEN_HEIGHT);
         self.runner = Some(runner);
     }
+}
+
+fn search_spec_files(spec_dir: &Path, needle: &str) -> bool {
+    if !spec_dir.exists() {
+        return false;
+    }
+    search_dir(spec_dir, needle)
+}
+
+fn search_dir(dir: &Path, needle: &str) -> bool {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.is_dir() {
+                    if search_dir(&path, needle) {
+                        return true;
+                    }
+                } else if path.extension().map(|e| e == "md").unwrap_or(false) {
+                    if let Ok(content) = std::fs::read_to_string(&path) {
+                        if content.contains(needle) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    false
 }
 
 // --- GIVEN steps ---
@@ -148,10 +177,12 @@ async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
     world.start_with_config(config);
 }
 
-#[given(expr = "SPEC.md already contains {string}")]
-async fn spec_already_exists(world: &mut SpecwriterWorld, content: String) {
+#[given(expr = "the spec README already contains {string}")]
+async fn spec_readme_already_contains(world: &mut SpecwriterWorld, content: String) {
     let content = content.replace("\\n", "\n");
-    std::fs::write(world.workdir_path().join("SPEC.md"), content).unwrap();
+    let spec_dir = world.workdir_path().join("spec");
+    std::fs::create_dir_all(&spec_dir).unwrap();
+    std::fs::write(spec_dir.join("README.md"), content).unwrap();
 }
 
 // --- WHEN steps ---
@@ -189,28 +220,25 @@ async fn wait_for_seeding(world: &mut SpecwriterWorld) {
 
 // --- THEN steps ---
 
-#[then("SPEC.md should exist")]
-async fn spec_exists(world: &mut SpecwriterWorld) {
-    let path = world.workdir_path().join("SPEC.md");
-    assert!(path.exists(), "SPEC.md should exist at {:?}", path);
+#[then("the spec README should exist")]
+async fn spec_readme_exists(world: &mut SpecwriterWorld) {
+    let path = world.workdir_path().join("spec").join("README.md");
+    assert!(path.exists(), "spec/README.md should exist at {:?}", path);
 }
 
-#[then("SPEC.md should not exist")]
-async fn spec_should_not_exist(world: &mut SpecwriterWorld) {
-    let path = world.workdir_path().join("SPEC.md");
-    assert!(!path.exists(), "SPEC.md should NOT exist at {:?}", path);
+#[then("the spec directory should not exist")]
+async fn spec_dir_not_exists(world: &mut SpecwriterWorld) {
+    let path = world.workdir_path().join("spec");
+    assert!(!path.exists(), "spec/ should NOT exist at {:?}", path);
 }
 
-#[then(expr = "SPEC.md should contain {string}")]
+#[then(expr = "the spec should contain {string}")]
 async fn spec_contains(world: &mut SpecwriterWorld, expected: String) {
-    let path = world.workdir_path().join("SPEC.md");
-    let content = std::fs::read_to_string(&path)
-        .unwrap_or_else(|_| panic!("Failed to read {:?}", path));
+    let spec_dir = world.workdir_path().join("spec");
     assert!(
-        content.contains(&expected),
-        "SPEC.md should contain '{}', but got:\n{}",
-        expected,
-        content
+        search_spec_files(&spec_dir, &expected),
+        "No spec file contains '{}'",
+        expected
     );
 }
 

@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use tokio::sync::mpsc;
 
@@ -23,7 +23,7 @@ impl Default for IntegratorConfig {
             args: vec![
                 "--print".into(),
                 "--allowedTools".into(),
-                "Edit,Read".into(),
+                "Edit,Read,Write".into(),
                 "-p".into(),
             ],
             working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
@@ -56,51 +56,35 @@ async fn integrator_loop(
     ui_tx: mpsc::UnboundedSender<IntegratorMessage>,
     config: IntegratorConfig,
 ) {
-    let spec_path = config.working_dir.join("SPEC.md");
-    let mut current_questions: Vec<(usize, String)> = Vec::new();
-    let mut next_question_id: usize = 1;
+    let spec_dir = config.working_dir.join("spec");
 
     // Seed questions from existing spec
-    if spec_path.exists() {
-        let content = std::fs::read_to_string(&spec_path).unwrap_or_default();
+    let readme_path = spec_dir.join("README.md");
+    if readme_path.exists() {
+        let content = std::fs::read_to_string(&readme_path).unwrap_or_default();
         if !content.trim().is_empty() {
             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
                 "Loading existing specs...".into(),
             ));
 
-            let prompt = format!(
-                r#"You are a requirements integrator. Read the existing SPEC.md file and generate an initial set of open questions based on its current content. These should be the most important things the user should think about or clarify.
+            let prompt = r#"You are a requirements integrator. Review the existing spec knowledge base under the spec/ directory and generate initial clarifying questions based on its current content.
 
-Question rules:
-- Questions must stay grounded in the topics and themes present in the spec
-- Match the abstraction level of the spec content
-- Generate up to 9 questions, sorted by priority
+Read spec/README.md to orient yourself, then read whatever other spec files you deem relevant.
 
-NEXT_QUESTION_ID: {next_question_id}
+INLINE QUESTIONS:
+Embed your questions directly in the relevant spec files using this format (one per line):
+?Q{id}: {question text}
 
-Assign each question an integer ID starting from NEXT_QUESTION_ID. Output the questions as a JSON array on the LAST line of your response, prefixed with "QUESTIONS:" like this:
-QUESTIONS:[{{"id":1,"text":"Question 1?"}},{{"id":2,"text":"Question 2?"}}]"#
-            );
+Place each question near the content it relates to. Assign sequential IDs starting from 1. Generate up to 9 questions, focusing on the most important things to clarify.
 
-            match run_command(&config, &prompt).await {
-                Ok(output) => {
-                    current_questions = parse_questions(&output);
-                    if !current_questions.is_empty() {
-                        next_question_id = current_questions
-                            .iter()
-                            .map(|(id, _)| *id)
-                            .max()
-                            .unwrap_or(0)
-                            + 1;
-                    }
-                    let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(
-                        current_questions.clone(),
-                    ));
-                }
-                Err(e) => {
-                    let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
-                }
+Do NOT output questions to stdout — embed them in the spec files only."#;
+
+            if let Err(e) = run_command(&config, prompt).await {
+                let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
             }
+
+            let questions = scan_inline_questions(&spec_dir);
+            let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
             let _ = ui_tx.send(IntegratorMessage::IntegrationComplete);
         }
     }
@@ -136,120 +120,104 @@ QUESTIONS:[{{"id":1,"text":"Question 1?"}},{{"id":2,"text":"Question 2?"}}]"#
             };
             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
 
-            // Create empty SPEC.md if it doesn't exist (app owns file creation, not CLI)
-            if !spec_path.exists() {
-                if let Err(e) = std::fs::write(&spec_path, "") {
+            // Create spec directory if it doesn't exist
+            if !spec_dir.exists() {
+                if let Err(e) = std::fs::create_dir_all(&spec_dir) {
                     let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!(
-                        "Error: Failed to create SPEC.md: {e}"
+                        "Error: Failed to create spec directory: {e}"
                     )));
                     errored = true;
                     break;
                 }
             }
-            let spec_is_empty = std::fs::read_to_string(&spec_path)
-                .map(|s| s.trim().is_empty())
-                .unwrap_or(true);
+
+            let spec_is_empty = !readme_path.exists()
+                || std::fs::read_to_string(&readme_path)
+                    .map(|s| s.trim().is_empty())
+                    .unwrap_or(true);
             let message = &queue[i];
-
-            let questions_context = if current_questions.is_empty() {
-                String::new()
-            } else {
-                let q_list: Vec<String> = current_questions
-                    .iter()
-                    .map(|(num, q)| format!("Q{}. {}", num, q))
-                    .collect();
-                format!(
-                    "\n\nCURRENT QUESTION POOL (manage incrementally — keep relevant, remove answered, add new):\n{}\n\nNEXT_QUESTION_ID: {}\n",
-                    q_list.join("\n"),
-                    next_question_id
-                )
-            };
-
-            let pool_cap_note = if current_questions.len() >= 9 {
-                "\n\nThe question pool is at capacity (9 questions). Do NOT add new questions. You may keep or remove existing ones only.\n"
-            } else {
-                ""
-            };
-
-            let question_instructions = format!(
-                r#"QUESTIONS:
-Update the question pool incrementally based on the current state of the spec:
-- KEEP questions that are still relevant and unanswered (preserve their ID)
-- REMOVE questions that have been answered or are no longer relevant
-- ADD new questions that arise from the latest input (assign IDs starting from NEXT_QUESTION_ID, never reuse old IDs)
-- You may slightly reword kept questions, but their ID must not change
-- Questions must match the abstraction level of the spec
-- Questions must stay grounded in the topics and themes present in the spec
-- If you detect conflicting requirements, surface them as clarifying questions
-- Maximum 9 questions in the pool{pool_cap_note}
-
-{next_id_context}Output the updated question pool as a JSON array on the LAST line of your response, prefixed with "QUESTIONS:" like this:
-QUESTIONS:[{{"id":1,"text":"Question 1?"}},{{"id":3,"text":"Updated question 3?"}},{{"id":5,"text":"New question?"}}]"#,
-                next_id_context = if current_questions.is_empty() {
-                    format!("NEXT_QUESTION_ID: {}\n\n", next_question_id)
-                } else {
-                    String::new() // already included in questions_context
-                }
-            );
 
             let prompt = if !spec_is_empty {
                 format!(
-                    r#"You are a requirements integrator. Read the existing SPEC.md file, then integrate the following new user message into it. The goal is to maintain a single cohesive requirements/feature specification document.
+                    r#"You are a requirements integrator managing a spec knowledge base under the spec/ directory.
+
+Read spec/README.md to orient yourself, then read whatever other spec files you deem relevant for integrating the following user message.
 
 RULES:
 - Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
-- You are integrating a thought-stream of requirements into a cohesive document, not writing a technical spec.
+- You are integrating a thought-stream of requirements into a cohesive knowledge base, not writing a technical spec.
 - Preserve the user's intent and language where possible.
-- Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain document coherence and quality, while always preserving intent.
-- If the input seems unrelated to existing content, do not ignore it. The user may be switching topics or expanding scope. Create a new topic area, weave it into existing sections, or restructure the document as needed.
+- Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain coherence and quality, while always preserving intent.
+- If the input seems unrelated to existing content, create a new topic area or file as appropriate.
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
-DOCUMENT STRUCTURE:
-The spec should include:
-- An overview of the project and what it does
-- Requirements organized by topic area
-- Acceptance criteria that capture what "done" looks like for key requirements
-Let this structure evolve naturally as content is added — organize into these sections as it makes sense rather than forcing a rigid template.
+SPEC STRUCTURE:
+- All spec files live under spec/
+- spec/README.md is the primary entrypoint — it should always exist and be useful
+- For a small spec, README.md may contain all the substance; as the knowledge base grows, it shifts toward an index role pointing readers to the right spec files
+- Prefer keeping README.md self-contained and substantive — err on the side of a longer README over premature splitting
+- You may create additional spec files or subdirectories as needed
+- Use prose and lists only — no diagrams, tables, or non-textual content
+- Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
+
+SPEC ORGANIZATION:
+- You own the organization of spec/ — create, split, merge, rename files as you see fit
+- Use whatever structure and naming makes sense for the material
+- Clean up empty or low-value files
+- READMEs should add value through descriptions and context, not mirror directory structure
 
 CODEBASE CONTEXT:
-You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance. The depth of exploration should match the specificity of the user's input: specific features warrant targeted context, general input warrants broader exploration.
+You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
+
+INLINE QUESTIONS:
+Embed clarifying questions directly in spec files using this format (one per line):
+?Q{{id}}: {{question text}}
+
+Place each question near the content it relates to. Questions are global across the knowledge base.
+- Keep questions that are still relevant and unanswered (preserve their IDs)
+- Remove questions that have been answered or are no longer relevant
+- Add new questions with IDs higher than any existing question ID
+- Maximum 9 questions across all spec files
+- Each question should be self-contained — understandable without cross-referencing
+- If input contradicts existing spec content, integrate it and optionally raise a clarifying question
+
+Do NOT output questions to stdout — embed them in the spec files only.
 
 User message:
 
-{message}{questions_context}
-
-After reading the existing SPEC.md, rewrite it with the new message integrated. Write the updated content to SPEC.md.
-
-{question_instructions}"#
+{message}"#
                 )
             } else {
                 format!(
-                    r#"You are a requirements integrator. Create a new SPEC.md file based on the following user message. The goal is to create a cohesive requirements/feature specification document.
+                    r#"You are a requirements integrator. Create a new spec knowledge base under the spec/ directory based on the following user message.
 
 RULES:
 - Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
-- You are integrating a thought-stream of requirements into a cohesive document, not writing a technical spec.
+- You are integrating a thought-stream of requirements into a cohesive knowledge base, not writing a technical spec.
 - Preserve the user's intent and language where possible.
-- Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain document coherence and quality, while always preserving intent.
+- Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain coherence and quality, while always preserving intent.
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
-DOCUMENT STRUCTURE:
-The spec should include:
-- An overview of the project and what it does
-- Requirements organized by topic area
-- Acceptance criteria that capture what "done" looks like for key requirements
-Let this structure evolve naturally as content is added — organize into these sections as it makes sense rather than forcing a rigid template.
+SPEC STRUCTURE:
+- Create spec/README.md as the primary entrypoint
+- For a small initial spec, README.md should contain all the substance
+- Use prose and lists only — no diagrams, tables, or non-textual content
+- Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
 
 CODEBASE CONTEXT:
-You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance. The depth of exploration should match the specificity of the user's input: specific features warrant targeted context, general input warrants broader exploration.
+You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
+
+INLINE QUESTIONS:
+Embed clarifying questions directly in spec files using this format (one per line):
+?Q{{id}}: {{question text}}
+
+Place each question near the content it relates to. Assign sequential IDs starting from 1. Generate up to 9 questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
+
+Do NOT output questions to stdout — embed them in the spec files only.
 
 User message:
 
-{message}{questions_context}
-
-Create a SPEC.md file with this requirement integrated into a cohesive document.
-
-{question_instructions}"#
+{message}"#
                 )
             };
 
@@ -272,19 +240,9 @@ Create a SPEC.md file with this requirement integrated into a cohesive document.
             };
 
             match result {
-                Ok(output) => {
-                    current_questions = parse_questions(&output);
-                    if !current_questions.is_empty() {
-                        next_question_id = current_questions
-                            .iter()
-                            .map(|(id, _)| *id)
-                            .max()
-                            .unwrap_or(0)
-                            + 1;
-                    }
-                    let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(
-                        current_questions.clone(),
-                    ));
+                Ok(_) => {
+                    let questions = scan_inline_questions(&spec_dir);
+                    let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
                 }
                 Err(e) => {
                     // Discard all remaining queued items
@@ -324,29 +282,51 @@ async fn run_command(config: &IntegratorConfig, prompt: &str) -> Result<String, 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-#[derive(serde::Deserialize)]
-struct QuestionEntry {
-    id: usize,
-    text: String,
+/// Scan all markdown files under spec/ for inline questions in the format:
+/// ?Q{id}: {question text}
+pub fn scan_inline_questions(spec_dir: &Path) -> Vec<(usize, String)> {
+    let mut questions = Vec::new();
+    if !spec_dir.exists() {
+        return questions;
+    }
+    scan_dir_for_questions(spec_dir, &mut questions);
+    questions.sort_by_key(|(id, _)| *id);
+    questions
 }
 
-pub fn parse_questions(output: &str) -> Vec<(usize, String)> {
-    for line in output.lines().rev() {
-        let line = line.trim();
-        if let Some(json_str) = line.strip_prefix("QUESTIONS:") {
-            // Try new format: [{"id":1,"text":"..."},...]
-            if let Ok(questions) = serde_json::from_str::<Vec<QuestionEntry>>(json_str) {
-                return questions.into_iter().map(|q| (q.id, q.text)).collect();
-            }
-            // Fallback: old format ["Q1","Q2"] — assign sequential IDs
-            if let Ok(questions) = serde_json::from_str::<Vec<String>>(json_str) {
-                return questions
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, q)| (i + 1, q))
-                    .collect();
+fn scan_dir_for_questions(dir: &Path, questions: &mut Vec<(usize, String)>) {
+    let entries = match std::fs::read_dir(dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+    for entry in entries {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        let path = entry.path();
+        if path.is_dir() {
+            scan_dir_for_questions(&path, questions);
+        } else if path.extension().map(|e| e == "md").unwrap_or(false) {
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                for line in content.lines() {
+                    if let Some(q) = parse_inline_question(line) {
+                        questions.push(q);
+                    }
+                }
             }
         }
     }
-    Vec::new()
+}
+
+fn parse_inline_question(line: &str) -> Option<(usize, String)> {
+    let trimmed = line.trim();
+    let rest = trimmed.strip_prefix("?Q")?;
+    let colon_pos = rest.find(':')?;
+    let id: usize = rest[..colon_pos].parse().ok()?;
+    let text = rest[colon_pos + 1..].trim().to_string();
+    if text.is_empty() {
+        return None;
+    }
+    Some((id, text))
 }

@@ -7,14 +7,14 @@ Feature: Question Seeding from Existing Spec
     Given a clean working directory
 
   Scenario: Starting with an existing spec generates initial questions
-    Given SPEC.md already contains "# My App\n\nA web application for managing tasks."
+    Given the spec README already contains "# My App\n\nA web application for managing tasks."
     And the specwriter is running with a seeding mock
     And I wait for seeding to complete
     Then the screen should show "Q1."
     And the screen should not show "No open questions"
 
   Scenario: Startup shows loading status while seeding
-    Given SPEC.md already contains "# My App\n\nA web application for managing tasks."
+    Given the spec README already contains "# My App\n\nA web application for managing tasks."
     And the specwriter is running with a slow seeding mock
     When I wait for status to contain "Loading"
     Then the screen should show "Loading existing specs"

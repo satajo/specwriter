@@ -3,24 +3,27 @@
 # On subsequent calls, returns the same 9 (no new questions added).
 
 WORKDIR="$(pwd)"
-SPEC="$WORKDIR/SPEC.md"
+SPEC_DIR="$WORKDIR/spec"
+README="$SPEC_DIR/README.md"
 
-if [ -f "$SPEC" ] && [ -s "$SPEC" ]; then
-    EXISTING=$(cat "$SPEC")
-    cat > "$SPEC" << EOF
-$EXISTING
+mkdir -p "$SPEC_DIR"
 
----
-
-Updated.
-EOF
+if [ -f "$README" ] && [ -s "$README" ]; then
+    EXISTING=$(grep -v "^?Q" "$README" || true)
+    printf '%s\n\n---\n\nUpdated.\n' "$EXISTING" > "$README"
 else
-    cat > "$SPEC" << EOF
-# Spec
-
-Large application requirements.
-EOF
+    printf '# Spec\n\nLarge application requirements.\n' > "$README"
 fi
 
-echo "I have integrated the requirements into SPEC.md."
-echo 'QUESTIONS:[{"id":1,"text":"Q one?"},{"id":2,"text":"Q two?"},{"id":3,"text":"Q three?"},{"id":4,"text":"Q four?"},{"id":5,"text":"Q five?"},{"id":6,"text":"Q six?"},{"id":7,"text":"Q seven?"},{"id":8,"text":"Q eight?"},{"id":9,"text":"Q nine?"}]'
+echo "" >> "$README"
+echo "?Q1: Q one?" >> "$README"
+echo "?Q2: Q two?" >> "$README"
+echo "?Q3: Q three?" >> "$README"
+echo "?Q4: Q four?" >> "$README"
+echo "?Q5: Q five?" >> "$README"
+echo "?Q6: Q six?" >> "$README"
+echo "?Q7: Q seven?" >> "$README"
+echo "?Q8: Q eight?" >> "$README"
+echo "?Q9: Q nine?" >> "$README"
+
+echo "I have integrated the requirements."

@@ -1,6 +1,6 @@
 Feature: Spec Integration
   As a user writing requirements
-  I want my messages to be integrated into a cohesive SPEC.md
+  I want my messages to be integrated into a spec knowledge base
   So that I have a single source of truth for my project's requirements
 
   Background:
@@ -13,23 +13,23 @@ Feature: Spec Integration
     And the screen should show "Input"
     And the screen should show "Ctrl+S"
 
-  Scenario: SPEC.md does not exist at launch
-    Then SPEC.md should not exist
+  Scenario: Spec directory does not exist at launch
+    Then the spec directory should not exist
 
-  Scenario: First message creates a new spec
+  Scenario: First message creates the spec knowledge base
     When I type "The app should have a login page"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then SPEC.md should exist
-    And SPEC.md should contain "login"
+    Then the spec README should exist
+    And the spec should contain "login"
     And the screen should show "Ready"
 
   Scenario: Subsequent messages update the existing spec
-    Given SPEC.md already contains "# Spec\n\nThe app has a login page."
+    Given the spec README already contains "# Spec\n\nThe app has a login page."
     When I type "Users should also be able to reset their password"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then SPEC.md should contain "password"
+    Then the spec should contain "password"
 
   Scenario: Submitting empty text does nothing
     When I type "   "
@@ -49,6 +49,6 @@ Feature: Spec Integration
     And I type "Feature B: filtering results"
     And I press Ctrl+S
     And I wait for all integrations to finish
-    Then SPEC.md should contain "search"
-    And SPEC.md should contain "filtering"
+    Then the spec should contain "search"
+    And the spec should contain "filtering"
     And the screen should show "Ready"
