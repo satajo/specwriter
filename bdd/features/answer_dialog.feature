@@ -27,3 +27,12 @@ Feature: Answer Dialog
     And I press Ctrl+S
     And I wait for integration to complete
     Then the screen should show "Idle."
+
+  Scenario: Answered question is immediately removed from the list
+    When I switch to the questions tab
+    Then the screen should show "Q1 (p8)"
+    When I press Enter
+    And I type "OAuth2"
+    And I press Ctrl+S
+    Then the screen should not show "Q1 (p8)"
+    And the screen should show "Q2 (p5)"

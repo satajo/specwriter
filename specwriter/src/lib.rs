@@ -43,6 +43,7 @@ pub struct App {
     pub answer_dialog: Option<AnswerDialog>,
     pub input_scroll: u16,
     pub detail_scroll: u16,
+    pub quit_pending: bool,
 }
 
 impl App {
@@ -61,6 +62,7 @@ impl App {
             answer_dialog: None,
             input_scroll: 0,
             detail_scroll: 0,
+            quit_pending: false,
         }
     }
 
@@ -106,6 +108,12 @@ impl App {
                 "The answer to question Q{} ({}) is: {}",
                 dialog.question.id, dialog.question.text, text
             );
+            // Immediately remove the answered question from the UI
+            let answered_id = dialog.question.id;
+            self.questions.retain(|q| q.id != answered_id);
+            if !self.questions.is_empty() && self.question_focus >= self.questions.len() {
+                self.question_focus = self.questions.len() - 1;
+            }
             self.integrator.send(message);
             self.state = AppState::Integrating;
             self.status = "Integrating...".into();
@@ -124,6 +132,7 @@ impl App {
             IntegratorMessage::IntegrationComplete => {
                 self.state = AppState::Idle;
                 self.status = "Idle.".into();
+                self.quit_pending = false;
             }
             IntegratorMessage::StatusUpdate(s) => {
                 if s.contains("Error") {
@@ -135,9 +144,18 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyEvent) {
-        // Ctrl+C always quits
+        // Ctrl+C quit handling
         if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
-            self.should_quit = true;
+            if self.state == AppState::Integrating {
+                if self.quit_pending {
+                    self.should_quit = true;
+                } else {
+                    self.quit_pending = true;
+                    self.status = "Integration in progress. Press Ctrl+C again to quit.".into();
+                }
+            } else {
+                self.should_quit = true;
+            }
             return;
         }
 

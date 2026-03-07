@@ -15,7 +15,7 @@ Feature: Tabbed UI
     Then the screen should show "Ctrl+S"
 
   Scenario: Tab content views have no redundant titles
-    Then the screen should not show "Ctrl+S to submit"
+    Then the screen should not show "Input ("
 
   Scenario: Tab key switches to questions tab
     When I press Tab

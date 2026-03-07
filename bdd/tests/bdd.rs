@@ -302,6 +302,13 @@ async fn press_up_n_times(world: &mut SpecwriterWorld, n: usize) {
     }
 }
 
+#[when("I press Ctrl+C")]
+async fn press_ctrl_c(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::Char('c'), specwriter::KeyModifiers::CONTROL);
+}
+
 #[when("I press Esc")]
 async fn press_esc(world: &mut SpecwriterWorld) {
     world
@@ -409,6 +416,22 @@ async fn question_list_should_show(world: &mut SpecwriterWorld, expected: String
         "Question list should contain '{}', but got:\n{}",
         expected,
         list_section
+    );
+}
+
+#[then("the app should have quit")]
+async fn app_should_have_quit(world: &mut SpecwriterWorld) {
+    assert!(
+        world.runner().app.should_quit,
+        "Expected the app to have quit, but it hasn't"
+    );
+}
+
+#[then("the app should not have quit")]
+async fn app_should_not_have_quit(world: &mut SpecwriterWorld) {
+    assert!(
+        !world.runner().app.should_quit,
+        "Expected the app to NOT have quit, but it has"
     );
 }
 

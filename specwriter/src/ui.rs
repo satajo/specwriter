@@ -22,8 +22,6 @@ fn status_indicator(app: &App) -> (&str, Style) {
 }
 
 /// Calculate center-focused scroll offset.
-/// Keeps `focus` roughly centered in a viewport of `visible` height,
-/// pinning to top/bottom when near the edges.
 fn center_scroll(focus: usize, visible: usize, total: usize) -> usize {
     if total <= visible {
         return 0;
@@ -34,8 +32,6 @@ fn center_scroll(focus: usize, visible: usize, total: usize) -> usize {
 }
 
 /// Calculate the visual cursor row and column for text with soft wrapping.
-/// `inner_width` is the number of columns available for text (after borders/padding).
-/// Returns (visual_row, visual_col).
 fn wrapped_cursor_pos(text: &str, cursor_pos: usize, inner_width: u16) -> (u16, u16) {
     let w = inner_width.max(1) as usize;
     let before_cursor = &text[..cursor_pos];
@@ -43,16 +39,14 @@ fn wrapped_cursor_pos(text: &str, cursor_pos: usize, inner_width: u16) -> (u16, 
 
     for (i, line) in before_cursor.split('\n').enumerate() {
         if i > 0 {
-            visual_row += 1; // newline itself advances a row
+            visual_row += 1;
         }
         let len = line.len();
         if len > 0 {
-            // Lines that fill exact multiples of width don't get an extra wrap line
             visual_row += len / w;
         }
     }
 
-    // The cursor column is the position within the last visual line
     let last_line = before_cursor.rsplit('\n').next().unwrap_or(before_cursor);
     let visual_col = last_line.len() % w;
 
@@ -67,7 +61,7 @@ fn wrapped_line_count(text: &str, inner_width: u16) -> usize {
         count += if line.is_empty() {
             1
         } else {
-            (line.len() + w - 1) / w // ceil division
+            (line.len() + w - 1) / w
         };
     }
     count
@@ -79,9 +73,9 @@ pub fn draw(f: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(1),  // status (plain text, no border)
             Constraint::Length(1),  // empty spacing line
-            Constraint::Length(1),  // tab bar
-            Constraint::Min(10),   // tab content
-            Constraint::Length(1), // help line
+            Constraint::Length(1),  // tab bar (no block — just labels)
+            Constraint::Min(10),   // tab content (bordered block)
+            Constraint::Length(1),  // help line
         ])
         .split(f.area());
 
@@ -93,29 +87,27 @@ pub fn draw(f: &mut Frame, app: &App) {
     ]);
     f.render_widget(Paragraph::new(status_line), chunks[0]);
 
-    // chunks[1] is the empty spacing line — left blank
-
-    // Tab bar
+    // Tab bar — Tabs widget in a single line, no block
     let q_count = app.questions.len();
-    let text_input_style = if app.active_tab == ActiveTab::TextInput {
-        Style::default().fg(Color::Black).bg(Color::Green)
-    } else {
-        Style::default().fg(Color::Green)
+    let selected = match app.active_tab {
+        ActiveTab::TextInput => 0,
+        ActiveTab::Questions => 1,
     };
-    let questions_label = format!(" Open Questions ({}) ", q_count);
-    let questions_style = if app.active_tab == ActiveTab::Questions {
-        Style::default().fg(Color::Black).bg(Color::Blue)
-    } else {
-        Style::default().fg(Color::Blue)
+    let highlight = match app.active_tab {
+        ActiveTab::TextInput => Style::default().fg(Color::Black).bg(Color::Green),
+        ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue),
     };
-    let tab_bar = Line::from(vec![
-        Span::styled(" Text Input ", text_input_style),
-        Span::raw(" "),
-        Span::styled(questions_label, questions_style),
-    ]);
-    f.render_widget(Paragraph::new(tab_bar), chunks[2]);
+    let titles = vec![
+        Line::from(" Text Input ").green(),
+        Line::from(format!(" Open Questions ({}) ", q_count)).blue(),
+    ];
+    let tabs = Tabs::new(titles)
+        .select(selected)
+        .highlight_style(highlight)
+        .divider(" ");
+    f.render_widget(tabs, chunks[2]);
 
-    // Tab content
+    // Tab content (own bordered block)
     match app.active_tab {
         ActiveTab::TextInput => draw_text_input(f, app, chunks[3]),
         ActiveTab::Questions => draw_questions(f, app, chunks[3]),
@@ -144,34 +136,46 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
-    // inner width: area - 2 (borders) - 1 (left padding)
-    let inner_width = area.width.saturating_sub(3);
-    let inner_height = area.height.saturating_sub(2); // borders top+bottom
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::reset())
+        .padding(Padding::left(1));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
 
-    let (cursor_row, cursor_col) = wrapped_cursor_pos(&app.input, app.cursor_pos, inner_width);
-    let total_lines = wrapped_line_count(&app.input, inner_width);
-    let scroll = center_scroll(cursor_row as usize, inner_height as usize, total_lines) as u16;
+    let inner_width = inner.width;
 
-    let input = Paragraph::new(app.input.as_str())
-        .block(Block::default().borders(Borders::ALL).padding(Padding::left(1)))
-        .wrap(Wrap { trim: false })
-        .scroll((scroll, 0));
-    f.render_widget(input, area);
+    if app.input.is_empty() {
+        let placeholder =
+            Paragraph::new("Type your requirements here. Ctrl+S to submit.")
+                .style(Style::default().fg(Color::Gray));
+        f.render_widget(placeholder, inner);
+    } else {
+        let (cursor_row, cursor_col) =
+            wrapped_cursor_pos(&app.input, app.cursor_pos, inner_width);
+        let total_lines = wrapped_line_count(&app.input, inner_width);
+        let scroll =
+            center_scroll(cursor_row as usize, inner.height as usize, total_lines) as u16;
 
-    // Cursor position
-    if app.answer_dialog.is_none() {
-        f.set_cursor_position(Position::new(
-            area.x + 2 + cursor_col,
-            area.y + 1 + cursor_row - scroll,
-        ));
+        let input = Paragraph::new(app.input.as_str())
+            .wrap(Wrap { trim: false })
+            .scroll((scroll, 0));
+        f.render_widget(input, inner);
+
+        if app.answer_dialog.is_none() {
+            f.set_cursor_position(Position::new(
+                inner.x + cursor_col,
+                inner.y + cursor_row - scroll,
+            ));
+        }
     }
 }
 
 fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
     if app.questions.is_empty() {
-        let content = Paragraph::new("  No open questions").gray().block(
-            Block::default().borders(Borders::ALL),
-        );
+        let content = Paragraph::new("  No open questions")
+            .style(Style::default().fg(Color::Gray))
+            .block(Block::default().borders(Borders::ALL).border_style(Style::reset()));
         f.render_widget(content, area);
         return;
     }
@@ -183,31 +187,29 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // Question list with center-focused scrolling
-    let visible_items = sub[0].height.saturating_sub(2) as usize; // minus borders
-    let list_scroll = center_scroll(app.question_focus, visible_items, app.questions.len());
+    let list_inner_height = sub[0].height.saturating_sub(2) as usize;
+    let list_scroll = center_scroll(app.question_focus, list_inner_height, app.questions.len());
 
     let items: Vec<ListItem> = app
         .questions
         .iter()
         .enumerate()
         .skip(list_scroll)
-        .take(visible_items)
+        .take(list_inner_height)
         .map(|(i, q)| {
             let line = format!("  Q{} (p{}). {} ({})", q.id, q.priority, q.text, q.file);
             let style = if i == app.question_focus {
                 Style::default().fg(Color::Black).bg(Color::Yellow)
             } else {
-                Style::default().fg(Color::Yellow)
+                Style::default()
             };
             ListItem::new(line).style(style)
         })
         .collect();
-    let list = List::new(items).block(
-        Block::default().borders(Borders::ALL),
-    );
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).border_style(Style::reset()));
     f.render_widget(list, sub[0]);
 
-    // Detail panel for focused question with scroll support
+    // Detail panel
     let focused = &app.questions[app.question_focus];
     let detail_text = if focused.body.is_empty() {
         format!(
@@ -220,45 +222,47 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
             focused.id, focused.priority, focused.text, focused.body, focused.file
         )
     };
-    let detail_inner_width = sub[1].width.saturating_sub(2);
     let detail_inner_height = sub[1].height.saturating_sub(2) as usize;
+    let detail_inner_width = sub[1].width.saturating_sub(2);
     let detail_total = wrapped_line_count(&detail_text, detail_inner_width);
     let detail_scroll = center_scroll(0, detail_inner_height, detail_total) as u16;
 
     let detail = Paragraph::new(detail_text)
-        .block(Block::default().borders(Borders::ALL).title(" Details "))
+        .block(Block::default().borders(Borders::ALL).border_style(Style::reset()).title(" Details "))
         .wrap(Wrap { trim: false })
         .scroll((detail_scroll, 0));
     f.render_widget(detail, sub[1]);
 }
 
 fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
-    // Center the dialog
     let dialog_width = area.width.saturating_sub(10).min(70);
     let dialog_height = 10u16.min(area.height.saturating_sub(6));
     let x = area.x + (area.width.saturating_sub(dialog_width)) / 2;
     let y = area.y + (area.height.saturating_sub(dialog_height)) / 2;
     let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
 
-    // Clear background
     f.render_widget(Clear, dialog_area);
 
-    // inner width: dialog - 2 (borders) - 1 (left padding)
     let inner_width = dialog_area.width.saturating_sub(3);
     let inner_height = dialog_area.height.saturating_sub(2);
 
-    let (cursor_row, cursor_col) = wrapped_cursor_pos(&dialog.input, dialog.cursor_pos, inner_width);
+    let (cursor_row, cursor_col) =
+        wrapped_cursor_pos(&dialog.input, dialog.cursor_pos, inner_width);
     let total_lines = wrapped_line_count(&dialog.input, inner_width);
     let scroll = center_scroll(cursor_row as usize, inner_height as usize, total_lines) as u16;
 
     let title = format!(" Answer Q{}: {} ", dialog.question.id, dialog.question.text);
     let input = Paragraph::new(dialog.input.as_str())
-        .block(Block::default().borders(Borders::ALL).title(title).padding(Padding::left(1)))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .padding(Padding::left(1)),
+        )
         .wrap(Wrap { trim: false })
         .scroll((scroll, 0));
     f.render_widget(input, dialog_area);
 
-    // Cursor in dialog
     f.set_cursor_position(Position::new(
         dialog_area.x + 2 + cursor_col,
         dialog_area.y + 1 + cursor_row - scroll,

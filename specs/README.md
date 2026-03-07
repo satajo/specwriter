@@ -39,6 +39,15 @@ current state of the user's intent.
 
 ## UI layout
 
+### Color philosophy
+
+Because this is a terminal UI application, colors should be used intentionally. All text should use the
+terminal's default foreground color unless an accent color is specifically called for. This ensures the
+application respects the user's terminal theme and only uses color where it carries meaning — status
+indicators, active tab highlights, focused-item markers, and similar purposeful accents.
+
+### Tabs and layout
+
 The UI is modal, organized into two tabs:
 - **Text Input** (green) — free-form text field for typing requirements, same as the
   current input experience
@@ -52,14 +61,17 @@ redundancy between the tab label and any heading or border title on the view it 
 All text input areas (the main input, the answer dialog, etc.) should have 1 character of
 left padding so text doesn't sit flush against the border.
 
-The tab bar appears below the status area. The screen shows these areas top to bottom:
+The tabs should use the ratatui `Tabs` widget, which integrates cleanly with the
+block borders of the content area below.
+
+The screen shows these areas top to bottom:
 - **Status** — the current application state (see below); displayed as plain text
   with no border or box around it; no extra left padding — it aligns with the panel
   borders below it
 - *(one empty line of spacing)*
-- **Tab bar** — shows the two tabs with their respective colors; the active tab is
+- **Tab bar + content** — the ratatui `Tabs` component renders the tab bar, which
+  visually integrates with the bordered content area below it; the active tab is
   highlighted by inverting its foreground and background colors
-- **Tab content** — the active tab's content area (see below)
 - **Help bar** — a single line at the bottom showing available keyboard shortcuts
 
 ### Scrolling
@@ -78,6 +90,9 @@ corrections, or responses and submits them for integration. All textarea inputs
 (main input, answer dialog, etc.) must correctly handle long lines that soft-wrap
 at the edge of the widget — the caret position must remain accurate after wrapping.
 
+When the text input is empty, it displays placeholder text in a dimmed color, inviting
+the user to type something and press Ctrl+S to submit.
+
 ### Open Questions tab
 
 A list of clarifying questions from the spec, sorted by priority from high to low.
@@ -90,8 +105,10 @@ highlighted, and its full content is shown in a separate panel below the list.
 
 Pressing Enter on a focused question opens a dialog where the user can type an answer.
 On submission, the answer is sent to the integrator with the relevant context (e.g.,
-"The answer to question Q3 is: ..."). This gives the user a direct, structured way to
-answer questions without having to reference question IDs in free-form text.
+"The answer to question Q3 is: ..."). The answered question is immediately removed from
+the open questions list in the UI, giving the user clear feedback that their answer went
+through. This gives the user a direct, structured way to answer questions without having
+to reference question IDs in free-form text.
 
 If there are no open questions, the tab shows "No open questions."
 
@@ -99,7 +116,8 @@ If there are no open questions, the tab shows "No open questions."
 
 ### Global
 
-- **Ctrl+C** — quit the application
+- **Ctrl+C** — quit the application; if an integration is in progress, a confirmation
+  dialog is shown and the user must press Ctrl+C again to confirm the exit
 - **Tab** — switch between Text Input and Open Questions tabs
 
 ### Text Input tab
@@ -239,9 +257,4 @@ readable in terminals and when viewed in raw format.
 Specwriter is packaged as a Nix flake that produces a `specwriter` binary.
 
 ## Questions
-
-### Q2 (p6): Quit-during-integration behavior
-
-When the user quits with Ctrl+C while an integration is in progress, should the app wait for the
-current integration to finish, kill it immediately, or offer a choice?
 
