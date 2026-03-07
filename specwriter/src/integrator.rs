@@ -291,6 +291,7 @@ pub fn scan_inline_questions(spec_dir: &Path) -> Vec<(usize, String)> {
     }
     scan_dir_for_questions(spec_dir, &mut questions);
     questions.sort_by_key(|(id, _)| *id);
+    questions.truncate(9);
     questions
 }
 

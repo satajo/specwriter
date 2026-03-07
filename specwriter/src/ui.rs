@@ -44,7 +44,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 
     // Questions
     let q_items: Vec<Line> = if app.questions.is_empty() {
-        vec![Line::from("  No open questions yet. Start writing to generate questions.").gray()]
+        vec![Line::from("  No open questions").gray()]
     } else {
         app.questions
             .iter()
