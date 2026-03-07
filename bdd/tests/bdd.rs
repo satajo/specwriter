@@ -150,6 +150,20 @@ async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
     world.start_with_config(config);
 }
 
+#[given("the specwriter is running with a prioritized mock")]
+async fn running_with_prioritized_mock(world: &mut SpecwriterWorld) {
+    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = IntegratorConfig {
+        command: bdd_dir
+            .join("mock-claude-prioritized.sh")
+            .to_string_lossy()
+            .into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+    };
+    world.start_with_config(config);
+}
+
 #[given(expr = "the spec README already contains {string}")]
 async fn spec_readme_already_contains(world: &mut SpecwriterWorld, content: String) {
     let content = content.replace("\\n", "\n");
@@ -229,6 +243,24 @@ async fn screen_should_not_show(world: &mut SpecwriterWorld, expected: String) {
         "Screen should NOT contain '{}', but it does:\n{}",
         expected,
         screen
+    );
+}
+
+#[then(expr = "question {string} should appear before {string} on screen")]
+async fn question_appears_before(world: &mut SpecwriterWorld, first: String, second: String) {
+    let screen = world.runner().render();
+    let first_q = format!("{}.", first);
+    let second_q = format!("{}.", second);
+    let pos_first = screen.find(&first_q).unwrap_or_else(|| {
+        panic!("'{}' not found on screen:\n{}", first_q, screen)
+    });
+    let pos_second = screen.find(&second_q).unwrap_or_else(|| {
+        panic!("'{}' not found on screen:\n{}", second_q, screen)
+    });
+    assert!(
+        pos_first < pos_second,
+        "Expected '{}' before '{}' on screen, but positions are {} vs {}:\n{}",
+        first_q, second_q, pos_first, pos_second, screen
     );
 }
 

@@ -4,9 +4,17 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub enum IntegratorMessage {
-    QuestionsUpdated(Vec<(usize, String, String)>),
+    QuestionsUpdated(Vec<Question>),
     StatusUpdate(String),
     IntegrationComplete,
+}
+
+#[derive(Debug, Clone)]
+pub struct Question {
+    pub id: usize,
+    pub text: String,
+    pub file: String,
+    pub priority: u8,
 }
 
 #[derive(Debug, Clone)]
@@ -144,10 +152,12 @@ You have read access to the project where this tool is running. Gather whatever 
 QUESTIONS:
 Place clarifying questions at the END of each spec file under a `## Questions` heading, formatted as:
 
-Q<number>: <question text>
+Q<number> (p<priority>): <question text>
+
+where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer.
 
 Each question gets its own paragraph (separated by blank lines). Questions are global across the knowledge base.
-- Keep questions that are still relevant and unanswered (preserve their IDs)
+- Keep questions that are still relevant and unanswered (preserve their IDs and update priority as context evolves)
 - Remove questions that have been answered or are no longer relevant
 - Add new questions with IDs higher than any existing question ID
 - Maximum 9 questions across all spec files
@@ -183,7 +193,9 @@ You have read access to the project where this tool is running. Gather whatever 
 QUESTIONS:
 Place clarifying questions at the END of the spec file under a `## Questions` heading, formatted as:
 
-Q<number>: <question text>
+Q<number> (p<priority>): <question text>
+
+where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer.
 
 Each question gets its own paragraph (separated by blank lines). Assign sequential IDs starting from 1. Generate up to 9 questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
 
@@ -267,19 +279,19 @@ async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &
 }
 
 /// Scan all markdown files under spec/ for questions under ## Questions headings.
-/// Returns (id, text, source_file) tuples.
-pub fn scan_questions(spec_dir: &Path) -> Vec<(usize, String, String)> {
+/// Returns Questions sorted by priority (highest first), capped at 9.
+pub fn scan_questions(spec_dir: &Path) -> Vec<Question> {
     let mut questions = Vec::new();
     if !spec_dir.exists() {
         return questions;
     }
     scan_dir_for_questions(spec_dir, spec_dir, &mut questions);
-    questions.sort_by_key(|(id, _, _)| *id);
+    questions.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.id.cmp(&b.id)));
     questions.truncate(9);
     questions
 }
 
-fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<(usize, String, String)>) {
+fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<Question>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -310,8 +322,8 @@ fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<(usiz
                         break;
                     }
                     if in_questions_section {
-                        if let Some((id, text)) = parse_question_line(trimmed) {
-                            questions.push((id, text, rel_path.clone()));
+                        if let Some(q) = parse_question_line(trimmed, &rel_path) {
+                            questions.push(q);
                         }
                     }
                 }
@@ -320,13 +332,25 @@ fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<(usiz
     }
 }
 
-fn parse_question_line(line: &str) -> Option<(usize, String)> {
+fn parse_question_line(line: &str, file: &str) -> Option<Question> {
     let rest = line.strip_prefix('Q')?;
     let colon_pos = rest.find(':')?;
-    let id: usize = rest[..colon_pos].parse().ok()?;
+    let before_colon = rest[..colon_pos].trim();
+
+    // Parse "ID (pPRIORITY)" or just "ID"
+    let (id, priority) = if let Some(paren_start) = before_colon.find('(') {
+        let id: usize = before_colon[..paren_start].trim().parse().ok()?;
+        let inside = before_colon[paren_start + 1..].trim_end_matches(')').trim();
+        let priority: u8 = inside.strip_prefix('p')?.parse().ok()?;
+        (id, priority)
+    } else {
+        let id: usize = before_colon.parse().ok()?;
+        (id, 5) // default priority
+    };
+
     let text = rest[colon_pos + 1..].trim().to_string();
     if text.is_empty() {
         return None;
     }
-    Some((id, text))
+    Some(Question { id, text, file: file.to_string(), priority })
 }

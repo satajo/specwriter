@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{backend::TestBackend, style::Color, Terminal};
 use tokio::sync::mpsc;
 
-use integrator::{IntegratorConfig, IntegratorHandle, IntegratorMessage};
+use integrator::{IntegratorConfig, IntegratorHandle, IntegratorMessage, Question};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppState {
@@ -18,7 +18,7 @@ pub enum AppState {
 pub struct App {
     pub input: String,
     pub cursor_pos: usize,
-    pub questions: Vec<(usize, String, String)>,
+    pub questions: Vec<Question>,
     pub status: String,
     pub state: AppState,
     pub tick: u64,
