@@ -2,31 +2,21 @@ use ratatui::{prelude::*, widgets::*};
 
 use crate::{ActiveTab, App, AppState};
 
-const SPINNER_FRAMES: &[&str] = &[
-    ".  ",
-    ".. ",
-    "...",
-    " ..",
-    "  .",
-    "   ",
-];
-const SPINNER_TICKS_PER_FRAME: u64 = 1;
+const DOT_TICKS_PER_FRAME: u64 = 1;
 
 fn status_line(app: &App) -> Line<'_> {
     match app.state {
         AppState::Integrating => {
-            let frame = ((app.tick / SPINNER_TICKS_PER_FRAME) as usize) % SPINNER_FRAMES.len();
-            Line::from(vec![
-                Span::styled(SPINNER_FRAMES[frame], Style::default().fg(Color::Yellow)),
-                Span::raw(" "),
-                Span::raw(&app.status),
-            ])
+            let dot_count = ((app.tick / DOT_TICKS_PER_FRAME) as usize % 3) + 1;
+            let dots: String = ".".repeat(dot_count);
+            let text = format!(" {}{}", app.status, dots);
+            Line::from(Span::styled(text, Style::default().fg(Color::Yellow)))
         }
         AppState::Idle => {
-            Line::from(Span::raw(&app.status))
+            Line::from(format!(" {}", app.status))
         }
         AppState::Error => {
-            Line::from(Span::styled(&app.status, Style::default().fg(Color::Red)))
+            Line::from(Span::styled(format!(" {}", app.status), Style::default().fg(Color::Red)))
         }
     }
 }
@@ -104,12 +94,12 @@ pub fn draw(f: &mut Frame, app: &App) {
     };
     let titles = vec![
         Line::from(" Text Input ").green(),
-        Line::from(format!("Open Questions ({}) ", q_count)).blue(),
+        Line::from(format!(" Open Questions ({}) ", q_count)).blue(),
     ];
     let tabs = Tabs::new(titles)
         .select(selected)
         .highlight_style(highlight)
-        .padding(" ", "")
+        .padding("", "")
         .divider("");
     f.render_widget(tabs, chunks[2]);
 

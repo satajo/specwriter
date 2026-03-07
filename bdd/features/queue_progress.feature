@@ -20,7 +20,7 @@ Feature: Queue Progress
     And I type "filter"
     And I press Ctrl+S
     And I wait for status to contain "in queue"
-    Then the screen should show "Integrating (1 in queue)..."
+    Then the screen should show "Integrating (1 in queue)"
     When I wait for all integrations to finish
     Then the spec should contain "search"
     And the spec should contain "filtering"

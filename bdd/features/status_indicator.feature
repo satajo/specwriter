@@ -8,7 +8,7 @@ Feature: Status Indicator
     And the specwriter is running with a mock command
 
   Scenario: Idle state shows no icon
-    Then row 1 should start with "Idle."
+    Then row 1 should start with " Idle."
 
   Scenario: Integrating state shows a dot spinner
     When I type "A requirement"
@@ -20,7 +20,7 @@ Feature: Status Indicator
     When I type "Something"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then row 1 should start with "Error"
+    Then row 1 should start with " Error!"
     And the status line should contain red text
 
   Scenario: Integrating indicator spins

@@ -95,7 +95,7 @@ impl App {
         self.input.clear();
         self.cursor_pos = 0;
         self.state = AppState::Integrating;
-        self.status = "Integrating...".into();
+        self.status = "Integrating".into();
     }
 
     pub fn submit_answer(&mut self) {
@@ -116,7 +116,7 @@ impl App {
             }
             self.integrator.send(message);
             self.state = AppState::Integrating;
-            self.status = "Integrating...".into();
+            self.status = "Integrating".into();
         }
     }
 

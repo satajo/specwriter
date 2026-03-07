@@ -72,7 +72,10 @@ The screen shows these areas top to bottom:
 - **Tab bar + content** — the ratatui `Tabs` component renders the tab bar, which
   visually integrates with the bordered content area below it; the active tab is
   highlighted by inverting its foreground and background colors
-- **Help bar** — a single line at the bottom showing available keyboard shortcuts
+- **Help bar** — a single line at the bottom showing available keyboard shortcuts;
+  the help bar is context-sensitive, adapting its content to the current mode (e.g.,
+  showing different shortcuts for the Text Input tab, Open Questions tab, and answer
+  dialog)
 
 ### Scrolling
 
@@ -142,14 +145,20 @@ If there are no open questions, the tab shows "No open questions."
 
 ## Status indicator
 
-The status area reflects the application state with both text and a color-coded
-indicator:
-- **Ready** (green) — displays "Idle." with no additional instructional text
-- **Integrating** (yellow, animated spinner) — a submission is being processed; if
-  additional submissions are queued, the display shows the queue depth (e.g.,
-  "Integrating (1 in queue)..."). The queue count updates immediately when new
-  submissions arrive, even while an integration is in progress.
-- **Error** (red) — the last integration failed
+The entire status line is colored to reflect the current application state — the
+color applies to all text on the line, not just an icon or indicator element:
+- **Ready** (default terminal foreground) — displays "Idle." with no additional
+  instructional text; uses the terminal's normal foreground color, indicating
+  nothing noteworthy is happening
+- **Integrating** (yellow) — a submission is being processed. The animation is a
+  trailing dot sequence (`Integrating.`, `Integrating..`, `Integrating...`) — the
+  dots are always at the end of the line, cycling at 300ms per frame (fast enough
+  to convey active work rather than lag). When additional submissions are queued,
+  the queue depth appears before the dots (e.g., `Integrating (1 in queue)...`).
+  The queue count updates immediately when new submissions arrive, even while an
+  integration is in progress.
+- **Error** (red) — the last integration failed; displays `Error! <description>`
+  where the description is a one-line summary of what went wrong
 
 Submitting new input from an error state recovers — the app transitions back to
 "Integrating" and attempts the new submission.
@@ -164,8 +173,8 @@ the Ready state with no open questions.
 
 ## Error handling
 
-- If the integrator command is not found or exits with an error, the UI shows "Error"
-  with a red indicator
+- If the integrator command is not found or exits with an error, the status line
+  shows `Error! <description>` in red with a one-line summary of the failure
 - When an error occurs, any remaining queued submissions are discarded
 - The user can recover by simply submitting new input — no restart is needed
 
@@ -197,9 +206,14 @@ the Ready state with no open questions.
   these levels, preserving each at the abstraction the user expressed it. It doesn't
   translate high-level ideas into implementation details, nor does it generalize
   specific technical decisions into vague principles.
-- **Question-driven**: The system generates clarifying questions embedded in the spec
-  to surface gaps, ambiguities, or contradictions. These help the user think through
-  their requirements without requiring them to be exhaustive upfront. Questions are
+- **Question-driven**: The system proactively generates clarifying questions embedded
+  in the spec to surface gaps, ambiguities, or contradictions. These help the user
+  think through their requirements without requiring them to be exhaustive upfront.
+  The integrator should be aggressive about generating questions — there should always
+  be at least a few open questions after each integration. A spec with zero questions
+  is a sign the integrator isn't doing its job: every spec has unexplored dimensions,
+  unstated assumptions, or areas that could benefit from clarification. Questions are
+  the primary mechanism for driving the conversation forward. Questions are
   placed at the end of each spec file under a `## Questions` heading. Each question
   is a `###` subheading with the format `### Q<number> (p<priority>): <title>`,
   followed by the question body as prose underneath. This structure supports
@@ -257,4 +271,17 @@ readable in terminals and when viewed in raw format.
 Specwriter is packaged as a Nix flake that produces a `specwriter` binary.
 
 ## Questions
+
+### Q5 (p4): Error description source
+
+The error state displays `Error! <description>` with a one-line summary. When the Claude CLI fails, what
+should the description contain — the CLI's stderr output (possibly truncated), a generic message like
+"Integration failed", or something else? Different failure modes (command not found, non-zero exit, timeout)
+might warrant different descriptions.
+
+### Q6 (p3): Quit confirmation UX
+
+When Ctrl+C is pressed during an active integration, a confirmation dialog is shown. What should this dialog
+look like — a modal overlay, an inline message in the status line, or something else? And should the in-progress
+integration be cancelled immediately on the second Ctrl+C, or allowed to finish in the background?
 

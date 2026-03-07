@@ -108,9 +108,9 @@ async fn integrator_loop(
 
             let waiting = queue.len() - i - 1;
             let status = if waiting > 0 {
-                format!("Integrating ({} in queue)...", waiting)
+                format!("Integrating ({} in queue)", waiting)
             } else {
-                "Integrating...".into()
+                "Integrating".into()
             };
             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
 
@@ -118,7 +118,7 @@ async fn integrator_loop(
             if !spec_dir.exists() {
                 if let Err(e) = std::fs::create_dir_all(&spec_dir) {
                     let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!(
-                        "Error: Failed to create spec directory: {e}"
+                        "Error! Failed to create spec directory: {e}"
                     )));
                     errored = true;
                     break;
@@ -180,6 +180,7 @@ Questions are global across the knowledge base.
 - Remove questions that have been answered or are no longer relevant
 - Add new questions with IDs higher than any existing question ID
 - There is no artificial cap on the number of questions
+- Be aggressive about generating questions — there should always be at least a few open questions after each integration. A spec with zero questions is a sign you aren't doing your job: every spec has unexplored dimensions, unstated assumptions, or areas that could benefit from clarification. Questions are the primary mechanism for driving the conversation forward.
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
@@ -219,7 +220,7 @@ Place clarifying questions at the END of the spec file under a `## Questions` he
 
 where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer. The title gives a scannable summary; the body elaborates as needed.
 
-Assign sequential IDs starting from 1. Generate questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
+Assign sequential IDs starting from 1. Be aggressive about generating questions — there should always be at least a few open questions after each integration. A spec with zero questions is a sign you aren't doing your job: every spec has unexplored dimensions, unstated assumptions, or areas that could benefit from clarification. Questions are the primary mechanism for driving the conversation forward. Each question should be self-contained — understandable without cross-referencing.
 
 Do NOT output questions to stdout — place them in the spec files only.
 
@@ -247,7 +248,7 @@ User message:
                         if let Some(msg) = msg {
                             queue.push(msg);
                             let waiting = queue.len() - i - 1;
-                            let status = format!("Integrating ({} in queue)...", waiting);
+                            let status = format!("Integrating ({} in queue)", waiting);
                             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
                         }
                     }
@@ -279,7 +280,7 @@ User message:
                             Err(e2) => {
                                 while let Ok(_) = rx.try_recv() {}
                                 let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-                                    format!("Error: {e2}"),
+                                    format!("Error! {e2}"),
                                 ));
                                 errored = true;
                                 break;
@@ -288,7 +289,7 @@ User message:
                     } else {
                         // First call failed — no recovery possible
                         while let Ok(_) = rx.try_recv() {}
-                        let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
+                        let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error! {e}")));
                         errored = true;
                         break;
                     }
