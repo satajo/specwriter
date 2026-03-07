@@ -200,6 +200,55 @@ async fn wait_for_status(world: &mut SpecwriterWorld, needle: String) {
     world.runner().wait_for_status_to_contain(&needle).await;
 }
 
+#[when("I press Tab")]
+async fn press_tab(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
+}
+
+#[when("I press Enter")]
+async fn press_enter(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::Enter, specwriter::KeyModifiers::NONE);
+}
+
+#[when("I press Esc")]
+async fn press_esc(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::Esc, specwriter::KeyModifiers::NONE);
+}
+
+#[given("I switch to the questions tab")]
+#[when("I switch to the questions tab")]
+async fn switch_to_questions_tab(world: &mut SpecwriterWorld) {
+    use specwriter::ActiveTab;
+    // Press Tab until we're on the Questions tab
+    for _ in 0..2 {
+        if world.runner().app.active_tab == ActiveTab::Questions {
+            return;
+        }
+        world
+            .runner()
+            .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
+    }
+}
+
+#[when("I switch to the text input tab")]
+async fn switch_to_text_input_tab(world: &mut SpecwriterWorld) {
+    use specwriter::ActiveTab;
+    for _ in 0..2 {
+        if world.runner().app.active_tab == ActiveTab::TextInput {
+            return;
+        }
+        world
+            .runner()
+            .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
+    }
+}
+
 // --- THEN steps ---
 
 #[then("the spec README should exist")]

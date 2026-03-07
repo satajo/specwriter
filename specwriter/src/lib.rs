@@ -1,7 +1,8 @@
 pub mod integrator;
 pub mod ui;
 
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+pub use crossterm::event::{KeyCode, KeyModifiers};
+use crossterm::event::{KeyEvent};
 use ratatui::{backend::TestBackend, style::Color, Terminal};
 use tokio::sync::mpsc;
 
@@ -14,6 +15,19 @@ pub enum AppState {
     Error,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum ActiveTab {
+    TextInput,
+    Questions,
+}
+
+#[derive(Debug)]
+pub struct AnswerDialog {
+    pub question: Question,
+    pub input: String,
+    pub cursor_pos: usize,
+}
+
 #[derive(Debug)]
 pub struct App {
     pub input: String,
@@ -24,6 +38,9 @@ pub struct App {
     pub tick: u64,
     pub integrator: IntegratorHandle,
     pub should_quit: bool,
+    pub active_tab: ActiveTab,
+    pub question_focus: usize,
+    pub answer_dialog: Option<AnswerDialog>,
 }
 
 impl App {
@@ -37,6 +54,9 @@ impl App {
             tick: 0,
             integrator,
             should_quit: false,
+            active_tab: ActiveTab::TextInput,
+            question_focus: 0,
+            answer_dialog: None,
         }
     }
 
@@ -72,9 +92,31 @@ impl App {
         self.status = "Integrating...".into();
     }
 
+    pub fn submit_answer(&mut self) {
+        if let Some(dialog) = self.answer_dialog.take() {
+            let text = dialog.input.trim().to_string();
+            if text.is_empty() {
+                return;
+            }
+            let message = format!(
+                "The answer to question Q{} ({}) is: {}",
+                dialog.question.id, dialog.question.text, text
+            );
+            self.integrator.send(message);
+            self.state = AppState::Integrating;
+            self.status = "Integrating...".into();
+        }
+    }
+
     pub fn update_from_integrator(&mut self, msg: IntegratorMessage) {
         match msg {
-            IntegratorMessage::QuestionsUpdated(q) => self.questions = q,
+            IntegratorMessage::QuestionsUpdated(q) => {
+                self.questions = q;
+                // Clamp focus index
+                if !self.questions.is_empty() && self.question_focus >= self.questions.len() {
+                    self.question_focus = self.questions.len() - 1;
+                }
+            }
             IntegratorMessage::IntegrationComplete => {
                 self.state = AppState::Idle;
                 self.status = "Ready. Type your requirements and press Ctrl+S to submit.".into();
@@ -85,6 +127,238 @@ impl App {
                 }
                 self.status = s;
             }
+        }
+    }
+
+    pub fn handle_key(&mut self, key: KeyEvent) {
+        // Ctrl+C always quits
+        if key.code == KeyCode::Char('c') && key.modifiers == KeyModifiers::CONTROL {
+            self.should_quit = true;
+            return;
+        }
+
+        // Answer dialog modal
+        if self.answer_dialog.is_some() {
+            self.handle_answer_dialog_key(key);
+            return;
+        }
+
+        // Tab switching (global)
+        if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
+            self.active_tab = match self.active_tab {
+                ActiveTab::TextInput => ActiveTab::Questions,
+                ActiveTab::Questions => ActiveTab::TextInput,
+            };
+            return;
+        }
+
+        match self.active_tab {
+            ActiveTab::TextInput => self.handle_text_input_key(key),
+            ActiveTab::Questions => self.handle_questions_key(key),
+        }
+    }
+
+    fn handle_text_input_key(&mut self, key: KeyEvent) {
+        match key {
+            KeyEvent {
+                code: KeyCode::Char('s'),
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            } => {
+                self.submit();
+            }
+            KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::NONE,
+                ..
+            } => {
+                self.insert_newline();
+            }
+            KeyEvent {
+                code: KeyCode::Backspace,
+                ..
+            } => {
+                self.backspace();
+            }
+            KeyEvent {
+                code: KeyCode::Delete,
+                ..
+            } => {
+                self.delete();
+            }
+            KeyEvent {
+                code: KeyCode::Left,
+                ..
+            } => {
+                self.move_left();
+            }
+            KeyEvent {
+                code: KeyCode::Right,
+                ..
+            } => {
+                self.move_right();
+            }
+            KeyEvent {
+                code: KeyCode::Home,
+                ..
+            } => {
+                self.move_home();
+            }
+            KeyEvent {
+                code: KeyCode::End,
+                ..
+            } => {
+                self.move_end();
+            }
+            KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+                ..
+            } => {
+                self.insert_char(c);
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_questions_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Up => {
+                if self.question_focus > 0 {
+                    self.question_focus -= 1;
+                }
+            }
+            KeyCode::Down => {
+                if !self.questions.is_empty() && self.question_focus < self.questions.len() - 1 {
+                    self.question_focus += 1;
+                }
+            }
+            KeyCode::Enter => {
+                if !self.questions.is_empty() {
+                    let q = self.questions[self.question_focus].clone();
+                    self.answer_dialog = Some(AnswerDialog {
+                        question: q,
+                        input: String::new(),
+                        cursor_pos: 0,
+                    });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_answer_dialog_key(&mut self, key: KeyEvent) {
+        match key {
+            KeyEvent {
+                code: KeyCode::Esc, ..
+            } => {
+                self.answer_dialog = None;
+            }
+            KeyEvent {
+                code: KeyCode::Char('s'),
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            } => {
+                self.submit_answer();
+            }
+            KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::NONE,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    d.input.insert(d.cursor_pos, '\n');
+                    d.cursor_pos += 1;
+                }
+            }
+            KeyEvent {
+                code: KeyCode::Backspace,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    if d.cursor_pos > 0 {
+                        let prev = d.input[..d.cursor_pos]
+                            .char_indices()
+                            .last()
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
+                        d.input.replace_range(prev..d.cursor_pos, "");
+                        d.cursor_pos = prev;
+                    }
+                }
+            }
+            KeyEvent {
+                code: KeyCode::Delete,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    if d.cursor_pos < d.input.len() {
+                        let next = d.input[d.cursor_pos..]
+                            .char_indices()
+                            .nth(1)
+                            .map(|(i, _)| d.cursor_pos + i)
+                            .unwrap_or(d.input.len());
+                        d.input.replace_range(d.cursor_pos..next, "");
+                    }
+                }
+            }
+            KeyEvent {
+                code: KeyCode::Left,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    if d.cursor_pos > 0 {
+                        d.cursor_pos = d.input[..d.cursor_pos]
+                            .char_indices()
+                            .last()
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
+                    }
+                }
+            }
+            KeyEvent {
+                code: KeyCode::Right,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    if d.cursor_pos < d.input.len() {
+                        d.cursor_pos = d.input[d.cursor_pos..]
+                            .char_indices()
+                            .nth(1)
+                            .map(|(i, _)| d.cursor_pos + i)
+                            .unwrap_or(d.input.len());
+                    }
+                }
+            }
+            KeyEvent {
+                code: KeyCode::Home,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    let before = &d.input[..d.cursor_pos];
+                    d.cursor_pos = before.rfind('\n').map(|i| i + 1).unwrap_or(0);
+                }
+            }
+            KeyEvent {
+                code: KeyCode::End,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    let after = &d.input[d.cursor_pos..];
+                    d.cursor_pos += after.find('\n').unwrap_or(after.len());
+                }
+            }
+            KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+                ..
+            } => {
+                if let Some(ref mut d) = self.answer_dialog {
+                    d.input.insert(d.cursor_pos, c);
+                    d.cursor_pos += c.len_utf8();
+                }
+            }
+            _ => {}
         }
     }
 
@@ -149,76 +423,6 @@ impl App {
     pub fn move_end(&mut self) {
         let after = &self.input[self.cursor_pos..];
         self.cursor_pos += after.find('\n').unwrap_or(after.len());
-    }
-
-    pub fn handle_key(&mut self, key: KeyEvent) {
-        match key {
-            KeyEvent {
-                code: KeyCode::Char('c'),
-                modifiers: KeyModifiers::CONTROL,
-                ..
-            } => {
-                self.should_quit = true;
-            }
-            KeyEvent {
-                code: KeyCode::Char('s'),
-                modifiers: KeyModifiers::CONTROL,
-                ..
-            } => {
-                self.submit();
-            }
-            KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                ..
-            } => {
-                self.insert_newline();
-            }
-            KeyEvent {
-                code: KeyCode::Backspace,
-                ..
-            } => {
-                self.backspace();
-            }
-            KeyEvent {
-                code: KeyCode::Delete,
-                ..
-            } => {
-                self.delete();
-            }
-            KeyEvent {
-                code: KeyCode::Left,
-                ..
-            } => {
-                self.move_left();
-            }
-            KeyEvent {
-                code: KeyCode::Right,
-                ..
-            } => {
-                self.move_right();
-            }
-            KeyEvent {
-                code: KeyCode::Home,
-                ..
-            } => {
-                self.move_home();
-            }
-            KeyEvent {
-                code: KeyCode::End,
-                ..
-            } => {
-                self.move_end();
-            }
-            KeyEvent {
-                code: KeyCode::Char(c),
-                modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
-                ..
-            } => {
-                self.insert_char(c);
-            }
-            _ => {}
-        }
     }
 }
 

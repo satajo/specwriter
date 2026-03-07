@@ -39,24 +39,69 @@ current state of the user's intent.
 
 ## UI layout
 
-The screen shows four areas:
+The UI is modal, organized into two tabs:
+- **Text input** (blue) — free-form text field for typing requirements, same as the
+  current input experience
+- **Open questions (N)** (yellow) — browsable list of clarifying questions with
+  answer-in-place functionality; the tab name shows the total number of open questions
+
+The tab bar appears below the status bar. The screen shows these areas top to bottom:
 - **Status** — the current application state (see below)
-- **Open Questions** — the current list of clarifying questions from the spec, sorted
-  by priority from high to low, or "No open questions" if there are none. Each question
-  displays its priority after the question number (e.g., "Q3 (p7): ...") and the name
-  of the spec file it comes from, giving the user context for what area the question
-  relates to.
-- **Input** — a multiline text area where the user types, with a Ctrl+S submit hint
+- **Tab bar** — shows the two tabs with their respective colors; the active tab is
+  highlighted by inverting its foreground and background colors
+- **Tab content** — the active tab's content area (see below)
 - **Help bar** — a single line at the bottom showing available keyboard shortcuts
+
+### Text input tab
+
+A multiline text area where the user types whatever they want, with a Ctrl+S submit
+hint. This is the primary input mode — the user writes free-form requirements,
+corrections, or responses and submits them for integration.
+
+### Open questions tab
+
+A list of clarifying questions from the spec, sorted by priority from high to low.
+Each question displays its priority after the question number (e.g., "Q3 (p7): ...")
+and the name of the spec file it comes from, giving the user context for what area
+the question relates to.
+
+The user browses questions with arrow keys (up/down). The question list supports
+scrolling when the number of questions exceeds the visible area. The focused question
+is highlighted, and its full content is shown in a separate panel below the list.
+
+Pressing Enter on a focused question opens a dialog where the user can type an answer.
+On submission, the answer is sent to the integrator with the relevant context (e.g.,
+"The answer to question Q3 is: ..."). This gives the user a direct, structured way to
+answer questions without having to reference question IDs in free-form text.
+
+If there are no open questions, the tab shows "No open questions."
 
 ## Keyboard shortcuts
 
-- **Ctrl+S** — submit the current input for integration
+### Global
+
 - **Ctrl+C** — quit the application
+- **Tab** — switch between Text input and Open questions tabs
+
+### Text input tab
+
+- **Ctrl+S** — submit the current input for integration
 - **Enter** — insert a newline (the input area supports multiline text)
 - **Arrow keys** — move the cursor left/right within the text
 - **Home / End** — move to the beginning/end of the current line
 - **Backspace / Delete** — delete characters
+
+### Open questions tab
+
+- **Up / Down** — move focus between questions
+- **Enter** — open the answer dialog for the focused question
+
+### Answer dialog
+
+- **Ctrl+S** — submit the answer
+- **Esc** — cancel and close the dialog
+- **Enter** — insert a newline
+- Standard text editing keys (arrows, Home/End, Backspace/Delete)
 
 ## Status indicator
 
@@ -94,9 +139,9 @@ the Ready state with no open questions.
   viewer works. There is no built-in spec viewer.
 - **Stream-oriented**: The user doesn't edit the spec directly. They submit a stream
   of natural-language messages — additions, corrections, elaborations, deletions — and
-  the integrator reconciles them into the knowledge base. The user may reference open
-  questions by their IDs (e.g., "Q5: yes, single-user only") but this is optional —
-  they can also address questions implicitly through natural-language input.
+  the integrator reconciles them into the knowledge base. Questions can be answered
+  either through the dedicated Open questions tab (which provides structured
+  answer-in-place functionality) or implicitly through free-form text input.
 - **Furiously mutative**: The specwriter's core operation is aligning the spec to
   whatever the user says. What the user writes becomes the truth of specification —
   the spec is rewritten on-the-fly to conform. There is no history tracking,
@@ -126,8 +171,9 @@ the Ready state with no open questions.
   heading or end of file. This keeps questions out of the way of the human reader
   while still being part of the spec files. Questions have stable numeric identifiers
   (Q1, Q2, ...) that persist across integrations. New questions continue from the
-  highest existing ID. Answered or irrelevant questions are removed. The pool is
-  capped at 9 questions to keep the list manageable. Each question is assigned a
+  highest existing ID. Answered or irrelevant questions are removed. There is no
+  artificial cap on the number of questions — the dedicated scrollable list view
+  in the Open questions tab handles any number. Each question is assigned a
   **priority** (1–9, where 1 = low and 9 = high) so the user can focus on the most
   impactful questions first, enabling more efficient information gathering. Priority
   is based on two factors: how critical it is that this specific question gets
@@ -169,10 +215,10 @@ Specwriter is packaged as a Nix flake that produces a `specwriter` binary.
 
 ## Questions
 
-### Q1 (p7): UI overflow and scrolling behavior
+### Q1 (p6): Scrolling in other UI panels
 
-Should specwriter support scrolling in the Open Questions panel or the input area when content
-exceeds the visible area? Currently the spec doesn't address overflow behavior for any UI panel.
+The question list supports scrolling, but should the question detail panel, the text input area,
+and the answer dialog also scroll when content exceeds the visible area?
 
 ### Q2 (p6): Quit-during-integration behavior
 

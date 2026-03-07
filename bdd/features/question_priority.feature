@@ -9,6 +9,7 @@ Feature: Question Priority
   Scenario: Questions are displayed in priority order (highest first)
     Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p3): Low priority question?\n\nDetails here.\n\n### Q2 (p9): High priority question?\n\nDetails here.\n\n### Q3 (p6): Medium priority question?\n\nDetails here."
     And the specwriter is running with a mock command
+    And I switch to the questions tab
     Then the screen should show "Q2 (p9)."
     And question "Q2" should appear before "Q3" on screen
     And question "Q3" should appear before "Q1" on screen
@@ -16,6 +17,7 @@ Feature: Question Priority
   Scenario: Priority is displayed alongside each question
     Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p7): Important question?\n\nWhy does this matter?"
     And the specwriter is running with a mock command
+    And I switch to the questions tab
     Then the screen should show "Q1 (p7)."
 
   Scenario: Integration produces questions with priority
@@ -23,5 +25,6 @@ Feature: Question Priority
     When I type "Build an app"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then question "Q1" should appear before "Q2" on screen
     And question "Q2" should appear before "Q3" on screen

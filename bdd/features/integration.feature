@@ -9,8 +9,8 @@ Feature: Spec Integration
 
   Scenario: Application starts with a ready screen
     Then the screen should show "Ready"
-    And the screen should show "Open Questions"
-    And the screen should show "Input"
+    And the screen should show "Text input"
+    And the screen should show "Open questions"
     And the screen should show "Ctrl+S"
 
   Scenario: Spec directory does not exist at launch

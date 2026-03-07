@@ -1,6 +1,6 @@
 use ratatui::{prelude::*, widgets::*};
 
-use crate::{App, AppState};
+use crate::{ActiveTab, App, AppState};
 
 // ◰ ◳ ◲ ◱ — small square rotating through corners
 const SPINNER_FRAMES: &[&str] = &["\u{25f0}", "\u{25f3}", "\u{25f2}", "\u{25f1}"];
@@ -26,8 +26,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(3),  // status bar
-            Constraint::Min(5),    // questions
-            Constraint::Min(8),    // input
+            Constraint::Length(1),  // tab bar
+            Constraint::Min(10),   // tab content
             Constraint::Length(1), // help line
         ])
         .split(f.area());
@@ -42,41 +42,152 @@ pub fn draw(f: &mut Frame, app: &App) {
         .block(Block::default().borders(Borders::ALL).title(" Status "));
     f.render_widget(status, chunks[0]);
 
-    // Questions
-    let q_items: Vec<Line> = if app.questions.is_empty() {
-        vec![Line::from("  No open questions").gray()]
+    // Tab bar
+    let q_count = app.questions.len();
+    let text_input_style = if app.active_tab == ActiveTab::TextInput {
+        Style::default().fg(Color::Black).bg(Color::Blue)
     } else {
-        app.questions
-            .iter()
-            .map(|q| {
-                Line::from(format!("  Q{} (p{}). {} ({})", q.id, q.priority, q.text, q.file)).yellow()
-            })
-            .collect()
+        Style::default().fg(Color::Blue)
     };
-    let questions = Paragraph::new(q_items)
-        .block(Block::default().borders(Borders::ALL).title(" Open Questions "))
-        .wrap(Wrap { trim: false });
-    f.render_widget(questions, chunks[1]);
+    let questions_label = format!(" Open questions ({}) ", q_count);
+    let questions_style = if app.active_tab == ActiveTab::Questions {
+        Style::default().fg(Color::Black).bg(Color::Yellow)
+    } else {
+        Style::default().fg(Color::Yellow)
+    };
+    let tab_bar = Line::from(vec![
+        Span::styled(" Text input ", text_input_style),
+        Span::raw(" "),
+        Span::styled(questions_label, questions_style),
+    ]);
+    f.render_widget(Paragraph::new(tab_bar), chunks[1]);
 
-    // Input area
+    // Tab content
+    match app.active_tab {
+        ActiveTab::TextInput => draw_text_input(f, app, chunks[2]),
+        ActiveTab::Questions => draw_questions(f, app, chunks[2]),
+    }
+
+    // Help line
+    let help_text = if app.answer_dialog.is_some() {
+        " Ctrl+S: submit | Esc: cancel | Enter: newline"
+    } else {
+        match app.active_tab {
+            ActiveTab::TextInput => {
+                " Ctrl+C: quit | Tab: switch tab | Ctrl+S: submit | Enter: newline"
+            }
+            ActiveTab::Questions => {
+                " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: navigate | Enter: answer"
+            }
+        }
+    };
+    let help = Paragraph::new(help_text);
+    f.render_widget(help, chunks[3]);
+
+    // Answer dialog overlay
+    if let Some(ref dialog) = app.answer_dialog {
+        draw_answer_dialog(f, dialog, f.area());
+    }
+}
+
+fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
     let input = Paragraph::new(app.input.as_str())
-        .block(Block::default().borders(Borders::ALL).title(" Input (Ctrl+S to submit) "))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Input (Ctrl+S to submit) "),
+        )
         .wrap(Wrap { trim: false });
-    f.render_widget(input, chunks[2]);
+    f.render_widget(input, area);
 
-    // Calculate cursor position within the input area
-    let text_before_cursor = &app.input[..app.cursor_pos];
+    // Cursor position
+    if app.answer_dialog.is_none() {
+        let text_before_cursor = &app.input[..app.cursor_pos];
+        let lines: Vec<&str> = text_before_cursor.split('\n').collect();
+        let cursor_y = lines.len() - 1;
+        let cursor_x = lines.last().map(|l| l.len()).unwrap_or(0);
+        f.set_cursor_position(Position::new(
+            area.x + 1 + cursor_x as u16,
+            area.y + 1 + cursor_y as u16,
+        ));
+    }
+}
+
+fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
+    if app.questions.is_empty() {
+        let content = Paragraph::new("  No open questions").gray().block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Open Questions "),
+        );
+        f.render_widget(content, area);
+        return;
+    }
+
+    // Split into list and detail
+    let sub = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(5), Constraint::Min(4)])
+        .split(area);
+
+    // Question list
+    let items: Vec<ListItem> = app
+        .questions
+        .iter()
+        .enumerate()
+        .map(|(i, q)| {
+            let line = format!("  Q{} (p{}). {} ({})", q.id, q.priority, q.text, q.file);
+            let style = if i == app.question_focus {
+                Style::default().fg(Color::Black).bg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::Yellow)
+            };
+            ListItem::new(line).style(style)
+        })
+        .collect();
+    let list = List::new(items).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Open Questions "),
+    );
+    f.render_widget(list, sub[0]);
+
+    // Detail panel for focused question
+    let focused = &app.questions[app.question_focus];
+    let detail_text = format!(
+        "Q{} (p{}): {}\n\nFrom: {}",
+        focused.id, focused.priority, focused.text, focused.file
+    );
+    let detail = Paragraph::new(detail_text)
+        .block(Block::default().borders(Borders::ALL).title(" Details "))
+        .wrap(Wrap { trim: false });
+    f.render_widget(detail, sub[1]);
+}
+
+fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
+    // Center the dialog
+    let dialog_width = area.width.saturating_sub(10).min(70);
+    let dialog_height = 10u16.min(area.height.saturating_sub(6));
+    let x = area.x + (area.width.saturating_sub(dialog_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(dialog_height)) / 2;
+    let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
+
+    // Clear background
+    f.render_widget(Clear, dialog_area);
+
+    let title = format!(" Answer Q{}: {} ", dialog.question.id, dialog.question.text);
+    let input = Paragraph::new(dialog.input.as_str())
+        .block(Block::default().borders(Borders::ALL).title(title))
+        .wrap(Wrap { trim: false });
+    f.render_widget(input, dialog_area);
+
+    // Cursor in dialog
+    let text_before_cursor = &dialog.input[..dialog.cursor_pos];
     let lines: Vec<&str> = text_before_cursor.split('\n').collect();
     let cursor_y = lines.len() - 1;
     let cursor_x = lines.last().map(|l| l.len()).unwrap_or(0);
-
-    // +1 for border offset
     f.set_cursor_position(Position::new(
-        chunks[2].x + 1 + cursor_x as u16,
-        chunks[2].y + 1 + cursor_y as u16,
+        dialog_area.x + 1 + cursor_x as u16,
+        dialog_area.y + 1 + cursor_y as u16,
     ));
-
-    // Help line
-    let help = Paragraph::new(" Ctrl+C: quit | Ctrl+S: submit | Enter: newline");
-    f.render_widget(help, chunks[3]);
 }

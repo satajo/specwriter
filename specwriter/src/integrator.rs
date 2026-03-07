@@ -163,7 +163,7 @@ Questions are global across the knowledge base.
 - Keep questions that are still relevant and unanswered (preserve their IDs and update priority as context evolves)
 - Remove questions that have been answered or are no longer relevant
 - Add new questions with IDs higher than any existing question ID
-- Maximum 9 questions across all spec files
+- There is no artificial cap on the number of questions
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
@@ -203,7 +203,7 @@ Place clarifying questions at the END of the spec file under a `## Questions` he
 
 where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer. The title gives a scannable summary; the body elaborates as needed.
 
-Assign sequential IDs starting from 1. Generate up to 9 questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
+Assign sequential IDs starting from 1. Generate questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
 
 Do NOT output questions to stdout — place them in the spec files only.
 
@@ -285,7 +285,7 @@ async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &
 }
 
 /// Scan all markdown files under specs/ for questions under ## Questions headings.
-/// Returns Questions sorted by priority (highest first), capped at 9.
+/// Returns Questions sorted by priority (highest first).
 pub fn scan_questions(spec_dir: &Path) -> Vec<Question> {
     let mut questions = Vec::new();
     if !spec_dir.exists() {
@@ -293,7 +293,6 @@ pub fn scan_questions(spec_dir: &Path) -> Vec<Question> {
     }
     scan_dir_for_questions(spec_dir, spec_dir, &mut questions);
     questions.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.id.cmp(&b.id)));
-    questions.truncate(9);
     questions
 }
 

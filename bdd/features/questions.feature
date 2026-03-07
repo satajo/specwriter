@@ -11,6 +11,7 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should not show "No open questions"
 
@@ -18,12 +19,15 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
-    When I type "Add a dashboard"
+    When I switch to the text input tab
+    And I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
@@ -32,12 +36,15 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
-    When I type "Users need to search for products"
+    When I switch to the text input tab
+    And I type "Users need to search for products"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q4 (p5)."
     And the screen should not show "Q3 (p4)."
 
@@ -45,12 +52,15 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
-    When I type "We will use OAuth2 for authentication"
+    When I switch to the text input tab
+    And I type "We will use OAuth2 for authentication"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should not show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
@@ -70,18 +80,22 @@ Feature: Question Generation
     When I type "Simple requirement"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "No open questions"
 
   Scenario: Pool unchanged when input produces no new questions
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
-    When I type "Add a dashboard"
+    When I switch to the text input tab
+    And I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
+    And I switch to the questions tab
     Then the screen should show "Q1 (p8)."
     And the screen should show "Q2 (p6)."
     And the screen should show "Q3 (p4)."
