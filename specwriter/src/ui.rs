@@ -25,47 +25,48 @@ pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // status bar
+            Constraint::Length(1),  // status (plain text, no border)
+            Constraint::Length(1),  // empty spacing line
             Constraint::Length(1),  // tab bar
             Constraint::Min(10),   // tab content
             Constraint::Length(1), // help line
         ])
         .split(f.area());
 
-    // Status bar with animated indicator
+    // Status line (plain text, no border)
     let (icon, icon_style) = status_indicator(app);
     let status_line = Line::from(vec![
         Span::styled(format!(" {} ", icon), icon_style),
         Span::raw(&app.status),
     ]);
-    let status = Paragraph::new(status_line)
-        .block(Block::default().borders(Borders::ALL).title(" Status "));
-    f.render_widget(status, chunks[0]);
+    f.render_widget(Paragraph::new(status_line), chunks[0]);
+
+    // chunks[1] is the empty spacing line — left blank
 
     // Tab bar
     let q_count = app.questions.len();
     let text_input_style = if app.active_tab == ActiveTab::TextInput {
-        Style::default().fg(Color::Black).bg(Color::Blue)
+        Style::default().fg(Color::Black).bg(Color::Green)
     } else {
-        Style::default().fg(Color::Blue)
+        Style::default().fg(Color::Green)
     };
     let questions_label = format!(" Open questions ({}) ", q_count);
     let questions_style = if app.active_tab == ActiveTab::Questions {
-        Style::default().fg(Color::Black).bg(Color::Yellow)
+        Style::default().fg(Color::Black).bg(Color::Blue)
     } else {
-        Style::default().fg(Color::Yellow)
+        Style::default().fg(Color::Blue)
     };
     let tab_bar = Line::from(vec![
         Span::styled(" Text input ", text_input_style),
         Span::raw(" "),
         Span::styled(questions_label, questions_style),
     ]);
-    f.render_widget(Paragraph::new(tab_bar), chunks[1]);
+    f.render_widget(Paragraph::new(tab_bar), chunks[2]);
 
     // Tab content
     match app.active_tab {
-        ActiveTab::TextInput => draw_text_input(f, app, chunks[2]),
-        ActiveTab::Questions => draw_questions(f, app, chunks[2]),
+        ActiveTab::TextInput => draw_text_input(f, app, chunks[3]),
+        ActiveTab::Questions => draw_questions(f, app, chunks[3]),
     }
 
     // Help line
@@ -82,7 +83,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
     };
     let help = Paragraph::new(help_text);
-    f.render_widget(help, chunks[3]);
+    f.render_widget(help, chunks[4]);
 
     // Answer dialog overlay
     if let Some(ref dialog) = app.answer_dialog {
@@ -154,10 +155,17 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
 
     // Detail panel for focused question
     let focused = &app.questions[app.question_focus];
-    let detail_text = format!(
-        "Q{} (p{}): {}\n\nFrom: {}",
-        focused.id, focused.priority, focused.text, focused.file
-    );
+    let detail_text = if focused.body.is_empty() {
+        format!(
+            "Q{} (p{}): {}\n\nFrom: {}",
+            focused.id, focused.priority, focused.text, focused.file
+        )
+    } else {
+        format!(
+            "Q{} (p{}): {}\n\n{}\n\nFrom: {}",
+            focused.id, focused.priority, focused.text, focused.body, focused.file
+        )
+    };
     let detail = Paragraph::new(detail_text)
         .block(Block::default().borders(Borders::ALL).title(" Details "))
         .wrap(Wrap { trim: false });

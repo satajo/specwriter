@@ -13,6 +13,7 @@ pub enum IntegratorMessage {
 pub struct Question {
     pub id: usize,
     pub text: String,
+    pub body: String,
     pub file: String,
     pub priority: u8,
 }
@@ -323,6 +324,9 @@ fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<Quest
 
 fn parse_questions_from_content(content: &str, file: &str, questions: &mut Vec<Question>) {
     let mut in_questions_section = false;
+    let mut current_question: Option<Question> = None;
+    let mut body_lines: Vec<String> = Vec::new();
+
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed == "## Questions" {
@@ -332,11 +336,25 @@ fn parse_questions_from_content(content: &str, file: &str, questions: &mut Vec<Q
         if in_questions_section && trimmed.starts_with("## ") && trimmed != "## Questions" {
             break;
         }
-        if in_questions_section {
-            if let Some(q) = parse_question_heading(trimmed, file) {
-                questions.push(q);
-            }
+        if !in_questions_section {
+            continue;
         }
+        if let Some(q) = parse_question_heading(trimmed, file) {
+            // Flush previous question
+            if let Some(mut prev) = current_question.take() {
+                prev.body = body_lines.join("\n").trim().to_string();
+                questions.push(prev);
+            }
+            body_lines.clear();
+            current_question = Some(q);
+        } else if current_question.is_some() {
+            body_lines.push(line.to_string());
+        }
+    }
+    // Flush last question
+    if let Some(mut q) = current_question.take() {
+        q.body = body_lines.join("\n").trim().to_string();
+        questions.push(q);
     }
 }
 
@@ -361,5 +379,5 @@ fn parse_question_heading(line: &str, file: &str) -> Option<Question> {
     if text.is_empty() {
         return None;
     }
-    Some(Question { id, text, file: file.to_string(), priority })
+    Some(Question { id, text, body: String::new(), file: file.to_string(), priority })
 }

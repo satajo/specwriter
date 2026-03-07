@@ -596,8 +596,8 @@ impl AppRunner {
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        // The indicator icon is at column 2, row 1 (inside the status bar border, after leading space)
-        let cell = &buf[(2, 1)];
+        // The indicator icon is at column 1, row 0 (plain text status, after leading space)
+        let cell = &buf[(1, 0)];
         match cell.fg {
             Color::Yellow | Color::LightYellow => "yellow".into(),
             Color::Red | Color::LightRed => "red".into(),
@@ -617,7 +617,7 @@ impl AppRunner {
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        buf[(2, 1)].symbol().to_string()
+        buf[(1, 0)].symbol().to_string()
     }
 
     /// Get a snapshot of the indicator's visual state (symbol + raw fg color debug string)
@@ -627,7 +627,7 @@ impl AppRunner {
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        let cell = &buf[(2, 1)];
+        let cell = &buf[(1, 0)];
         format!("{}|{:?}", cell.symbol(), cell.fg)
     }
 }

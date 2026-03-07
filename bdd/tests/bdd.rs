@@ -214,6 +214,20 @@ async fn press_enter(world: &mut SpecwriterWorld) {
         .send_key(specwriter::KeyCode::Enter, specwriter::KeyModifiers::NONE);
 }
 
+#[when("I press Down")]
+async fn press_down(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::Down, specwriter::KeyModifiers::NONE);
+}
+
+#[when("I press Up")]
+async fn press_up(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::Up, specwriter::KeyModifiers::NONE);
+}
+
 #[when("I press Esc")]
 async fn press_esc(world: &mut SpecwriterWorld) {
     world
@@ -292,6 +306,21 @@ async fn screen_should_not_show(world: &mut SpecwriterWorld, expected: String) {
         "Screen should NOT contain '{}', but it does:\n{}",
         expected,
         screen
+    );
+}
+
+#[then(expr = "the detail panel should show {string}")]
+async fn detail_panel_should_show(world: &mut SpecwriterWorld, expected: String) {
+    let screen = world.runner().render();
+    let detail_start = screen.find("Details").unwrap_or_else(|| {
+        panic!("Details panel not found on screen:\n{}", screen)
+    });
+    let detail_section = &screen[detail_start..];
+    assert!(
+        detail_section.contains(&expected),
+        "Detail panel should contain '{}', but got:\n{}",
+        expected,
+        detail_section
     );
 }
 

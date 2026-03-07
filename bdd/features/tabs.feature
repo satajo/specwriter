@@ -28,3 +28,20 @@ Feature: Tabbed UI
     Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p7): First?\n\nBody.\n\n### Q2 (p5): Second?\n\nBody."
     And the specwriter is running with a mock command
     Then the screen should show "Open questions (2)"
+
+  Scenario: Focused question details are shown in the detail panel
+    Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    And the specwriter is running with a mock command
+    When I switch to the questions tab
+    Then the screen should show "Details"
+    And the detail panel should show "Auth requirements?"
+    And the detail panel should show "How should users authenticate?"
+    And the detail panel should show "README.md"
+
+  Scenario: Arrow keys change which question details are shown
+    Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    And the specwriter is running with a mock command
+    When I switch to the questions tab
+    Then the detail panel should show "Q1 (p8): Auth requirements?"
+    When I press Down
+    Then the detail panel should show "Q2 (p5): Target platform?"

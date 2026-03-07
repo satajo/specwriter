@@ -40,13 +40,15 @@ current state of the user's intent.
 ## UI layout
 
 The UI is modal, organized into two tabs:
-- **Text input** (blue) — free-form text field for typing requirements, same as the
+- **Text input** (green) — free-form text field for typing requirements, same as the
   current input experience
-- **Open questions (N)** (yellow) — browsable list of clarifying questions with
+- **Open questions (N)** (blue) — browsable list of clarifying questions with
   answer-in-place functionality; the tab name shows the total number of open questions
 
-The tab bar appears below the status bar. The screen shows these areas top to bottom:
-- **Status** — the current application state (see below)
+The tab bar appears below the status area. The screen shows these areas top to bottom:
+- **Status** — the current application state (see below); displayed as plain text
+  with no border or box around it
+- *(one empty line of spacing)*
 - **Tab bar** — shows the two tabs with their respective colors; the active tab is
   highlighted by inverting its foreground and background colors
 - **Tab content** — the active tab's content area (see below)
