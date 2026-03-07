@@ -18,7 +18,7 @@ pub enum AppState {
 pub struct App {
     pub input: String,
     pub cursor_pos: usize,
-    pub questions: Vec<String>,
+    pub questions: Vec<(usize, String)>,
     pub status: String,
     pub state: AppState,
     pub tick: u64,

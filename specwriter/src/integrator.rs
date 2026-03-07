@@ -4,7 +4,7 @@ use tokio::sync::mpsc;
 
 #[derive(Debug, Clone)]
 pub enum IntegratorMessage {
-    QuestionsUpdated(Vec<String>),
+    QuestionsUpdated(Vec<(usize, String)>),
     StatusUpdate(String),
     IntegrationComplete,
 }
@@ -22,8 +22,9 @@ impl Default for IntegratorConfig {
             command: "claude".into(),
             args: vec![
                 "--print".into(),
+                "--no-user-hooks".into(),
                 "--allowedTools".into(),
-                "Edit,Write,Read".into(),
+                "Edit,Read".into(),
                 "-p".into(),
             ],
             working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
@@ -57,7 +58,8 @@ async fn integrator_loop(
     config: IntegratorConfig,
 ) {
     let spec_path = config.working_dir.join("SPEC.md");
-    let mut current_questions: Vec<String> = Vec::new();
+    let mut current_questions: Vec<(usize, String)> = Vec::new();
+    let mut next_question_id: usize = 1;
 
     loop {
         let msg = match rx.recv().await {
@@ -89,7 +91,20 @@ async fn integrator_loop(
             };
             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
 
+            // Create empty SPEC.md if it doesn't exist (app owns file creation, not CLI)
             let has_spec = spec_path.exists();
+            if !has_spec {
+                if let Err(e) = std::fs::write(&spec_path, "") {
+                    let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!(
+                        "Error: Failed to create SPEC.md: {e}"
+                    )));
+                    errored = true;
+                    break;
+                }
+            }
+            let spec_is_empty = std::fs::read_to_string(&spec_path)
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true);
             let message = &queue[i];
 
             let questions_context = if current_questions.is_empty() {
@@ -97,8 +112,7 @@ async fn integrator_loop(
             } else {
                 let q_list: Vec<String> = current_questions
                     .iter()
-                    .enumerate()
-                    .map(|(i, q)| format!("{}. {}", i + 1, q))
+                    .map(|(num, q)| format!("Q{}. {}", num, q))
                     .collect();
                 format!(
                     "\n\nOPEN QUESTIONS (currently pending — do not re-ask these):\n{}\n",
@@ -106,7 +120,7 @@ async fn integrator_loop(
                 )
             };
 
-            let prompt = if has_spec {
+            let prompt = if !spec_is_empty {
                 format!(
                     r#"You are a requirements integrator. Read the existing SPEC.md file, then integrate the following new user message into it. The goal is to maintain a single cohesive requirements/feature specification document.
 
@@ -185,7 +199,13 @@ QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
 
             match run_command(&config, &prompt).await {
                 Ok(output) => {
-                    current_questions = parse_questions(&output);
+                    let raw_questions = parse_questions(&output);
+                    current_questions = raw_questions
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, q)| (next_question_id + i, q))
+                        .collect();
+                    next_question_id += current_questions.len();
                     let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(current_questions.clone()));
                 }
                 Err(e) => {

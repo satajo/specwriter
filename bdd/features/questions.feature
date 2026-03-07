@@ -7,12 +7,26 @@ Feature: Question Generation
     Given a clean working directory
     And the specwriter is running with a mock command
 
-  Scenario: Integration produces questions on screen
+  Scenario: Integration produces questions with unique identifiers
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "1."
+    Then the screen should show "Q1."
     And the screen should not show "No open questions"
+
+  Scenario: Question numbers increase across integrations
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Q1."
+    And the screen should show "Q2."
+    And the screen should show "Q3."
+    When I type "Users need to search for products"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "Q4."
+    And the screen should show "Q5."
+    And the screen should not show "Q1."
 
   Scenario: Questions are replaced each integration
     When I type "The app needs user authentication"

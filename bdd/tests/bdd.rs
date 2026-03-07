@@ -148,6 +148,12 @@ async fn spec_exists(world: &mut SpecwriterWorld) {
     assert!(path.exists(), "SPEC.md should exist at {:?}", path);
 }
 
+#[then("SPEC.md should not exist")]
+async fn spec_should_not_exist(world: &mut SpecwriterWorld) {
+    let path = world.workdir_path().join("SPEC.md");
+    assert!(!path.exists(), "SPEC.md should NOT exist at {:?}", path);
+}
+
 #[then(expr = "SPEC.md should contain {string}")]
 async fn spec_contains(world: &mut SpecwriterWorld, expected: String) {
     let path = world.workdir_path().join("SPEC.md");

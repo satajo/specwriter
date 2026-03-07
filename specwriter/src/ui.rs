@@ -4,7 +4,7 @@ use crate::{App, AppState};
 
 // ◰ ◳ ◲ ◱ — small square rotating through corners
 const SPINNER_FRAMES: &[&str] = &["\u{25f0}", "\u{25f3}", "\u{25f2}", "\u{25f1}"];
-const SPINNER_TICKS_PER_FRAME: u64 = 3; // advance every 300ms for a calm pace
+const SPINNER_TICKS_PER_FRAME: u64 = 1; // advance every 150ms (brisk pace)
 
 fn status_indicator(app: &App) -> (&str, Style) {
     match app.state {
@@ -48,9 +48,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     } else {
         app.questions
             .iter()
-            .enumerate()
-            .map(|(i, q)| {
-                Line::from(format!("  {}. {}", i + 1, q)).yellow()
+            .map(|(num, q)| {
+                Line::from(format!("  Q{}. {}", num, q)).yellow()
             })
             .collect()
     };

@@ -19,7 +19,7 @@ async fn main() -> anyhow::Result<()> {
 
     let (mut app, mut ui_rx) = App::with_default_integrator();
     let mut events = EventStream::new();
-    let mut tick_interval = tokio::time::interval(std::time::Duration::from_millis(100));
+    let mut tick_interval = tokio::time::interval(std::time::Duration::from_millis(150));
 
     loop {
         terminal.draw(|f| specwriter::ui::draw(f, &app))?;

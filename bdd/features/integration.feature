@@ -13,6 +13,9 @@ Feature: Spec Integration
     And the screen should show "Input"
     And the screen should show "Ctrl+S"
 
+  Scenario: SPEC.md does not exist at launch
+    Then SPEC.md should not exist
+
   Scenario: First message creates a new spec
     When I type "The app should have a login page"
     And I press Ctrl+S
