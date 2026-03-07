@@ -36,7 +36,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Status line (plain text, no border)
     let (icon, icon_style) = status_indicator(app);
     let status_line = Line::from(vec![
-        Span::styled(format!(" {} ", icon), icon_style),
+        Span::styled(format!("{} ", icon), icon_style),
         Span::raw(&app.status),
     ]);
     f.render_widget(Paragraph::new(status_line), chunks[0]);
@@ -50,14 +50,14 @@ pub fn draw(f: &mut Frame, app: &App) {
     } else {
         Style::default().fg(Color::Green)
     };
-    let questions_label = format!(" Open questions ({}) ", q_count);
+    let questions_label = format!(" Open Questions ({}) ", q_count);
     let questions_style = if app.active_tab == ActiveTab::Questions {
         Style::default().fg(Color::Black).bg(Color::Blue)
     } else {
         Style::default().fg(Color::Blue)
     };
     let tab_bar = Line::from(vec![
-        Span::styled(" Text input ", text_input_style),
+        Span::styled(" Text Input ", text_input_style),
         Span::raw(" "),
         Span::styled(questions_label, questions_style),
     ]);
@@ -93,22 +93,18 @@ pub fn draw(f: &mut Frame, app: &App) {
 
 fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
     let input = Paragraph::new(app.input.as_str())
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Input (Ctrl+S to submit) "),
-        )
+        .block(Block::default().borders(Borders::ALL).padding(Padding::left(1)))
         .wrap(Wrap { trim: false });
     f.render_widget(input, area);
 
-    // Cursor position
+    // Cursor position (border + padding = 2)
     if app.answer_dialog.is_none() {
         let text_before_cursor = &app.input[..app.cursor_pos];
         let lines: Vec<&str> = text_before_cursor.split('\n').collect();
         let cursor_y = lines.len() - 1;
         let cursor_x = lines.last().map(|l| l.len()).unwrap_or(0);
         f.set_cursor_position(Position::new(
-            area.x + 1 + cursor_x as u16,
+            area.x + 2 + cursor_x as u16,
             area.y + 1 + cursor_y as u16,
         ));
     }
@@ -117,9 +113,7 @@ fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
 fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
     if app.questions.is_empty() {
         let content = Paragraph::new("  No open questions").gray().block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Open Questions "),
+            Block::default().borders(Borders::ALL),
         );
         f.render_widget(content, area);
         return;
@@ -147,9 +141,7 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
         })
         .collect();
     let list = List::new(items).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(" Open Questions "),
+        Block::default().borders(Borders::ALL),
     );
     f.render_widget(list, sub[0]);
 
@@ -185,17 +177,17 @@ fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
 
     let title = format!(" Answer Q{}: {} ", dialog.question.id, dialog.question.text);
     let input = Paragraph::new(dialog.input.as_str())
-        .block(Block::default().borders(Borders::ALL).title(title))
+        .block(Block::default().borders(Borders::ALL).title(title).padding(Padding::left(1)))
         .wrap(Wrap { trim: false });
     f.render_widget(input, dialog_area);
 
-    // Cursor in dialog
+    // Cursor in dialog (border + padding = 2)
     let text_before_cursor = &dialog.input[..dialog.cursor_pos];
     let lines: Vec<&str> = text_before_cursor.split('\n').collect();
     let cursor_y = lines.len() - 1;
     let cursor_x = lines.last().map(|l| l.len()).unwrap_or(0);
     f.set_cursor_position(Position::new(
-        dialog_area.x + 1 + cursor_x as u16,
+        dialog_area.x + 2 + cursor_x as u16,
         dialog_area.y + 1 + cursor_y as u16,
     ));
 }

@@ -8,11 +8,14 @@ Feature: Tabbed UI
     And the specwriter is running with a mock command
 
   Scenario: Tab bar is visible on startup
-    Then the screen should show "Text input"
-    And the screen should show "Open questions"
+    Then the screen should show "Text Input"
+    And the screen should show "Open Questions"
 
   Scenario: Text input tab is active by default
-    Then the screen should show "Ctrl+S to submit"
+    Then the screen should show "Ctrl+S"
+
+  Scenario: Tab content views have no redundant titles
+    Then the screen should not show "Ctrl+S to submit"
 
   Scenario: Tab key switches to questions tab
     When I press Tab
@@ -22,12 +25,12 @@ Feature: Tabbed UI
   Scenario: Tab key switches back to text input
     When I press Tab
     And I press Tab
-    Then the screen should show "Ctrl+S to submit"
+    Then the screen should show "Ctrl+S"
 
   Scenario: Questions tab shows question count in tab name
     Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p7): First?\n\nBody.\n\n### Q2 (p5): Second?\n\nBody."
     And the specwriter is running with a mock command
-    Then the screen should show "Open questions (2)"
+    Then the screen should show "Open Questions (2)"
 
   Scenario: Focused question details are shown in the detail panel
     Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"

@@ -40,27 +40,35 @@ current state of the user's intent.
 ## UI layout
 
 The UI is modal, organized into two tabs:
-- **Text input** (green) — free-form text field for typing requirements, same as the
+- **Text Input** (green) — free-form text field for typing requirements, same as the
   current input experience
-- **Open questions (N)** (blue) — browsable list of clarifying questions with
+- **Open Questions (N)** (blue) — browsable list of clarifying questions with
   answer-in-place functionality; the tab name shows the total number of open questions
+
+Tab titles use Title Case — each word starts with a capital letter.
+Tab content views should not have their own titles — the tab title is sufficient. Avoid
+redundancy between the tab label and any heading or border title on the view it opens.
+
+All text input areas (the main input, the answer dialog, etc.) should have 1 character of
+left padding so text doesn't sit flush against the border.
 
 The tab bar appears below the status area. The screen shows these areas top to bottom:
 - **Status** — the current application state (see below); displayed as plain text
-  with no border or box around it
+  with no border or box around it; no extra left padding — it aligns with the panel
+  borders below it
 - *(one empty line of spacing)*
 - **Tab bar** — shows the two tabs with their respective colors; the active tab is
   highlighted by inverting its foreground and background colors
 - **Tab content** — the active tab's content area (see below)
 - **Help bar** — a single line at the bottom showing available keyboard shortcuts
 
-### Text input tab
+### Text Input tab
 
 A multiline text area where the user types whatever they want, with a Ctrl+S submit
 hint. This is the primary input mode — the user writes free-form requirements,
 corrections, or responses and submits them for integration.
 
-### Open questions tab
+### Open Questions tab
 
 A list of clarifying questions from the spec, sorted by priority from high to low.
 Each question displays its priority after the question number (e.g., "Q3 (p7): ...")
@@ -83,9 +91,9 @@ If there are no open questions, the tab shows "No open questions."
 ### Global
 
 - **Ctrl+C** — quit the application
-- **Tab** — switch between Text input and Open questions tabs
+- **Tab** — switch between Text Input and Open Questions tabs
 
-### Text input tab
+### Text Input tab
 
 - **Ctrl+S** — submit the current input for integration
 - **Enter** — insert a newline (the input area supports multiline text)
@@ -93,7 +101,7 @@ If there are no open questions, the tab shows "No open questions."
 - **Home / End** — move to the beginning/end of the current line
 - **Backspace / Delete** — delete characters
 
-### Open questions tab
+### Open Questions tab
 
 - **Up / Down** — move focus between questions
 - **Enter** — open the answer dialog for the focused question
@@ -109,7 +117,7 @@ If there are no open questions, the tab shows "No open questions."
 
 The status area reflects the application state with both text and a color-coded
 indicator:
-- **Ready** (green) — idle, waiting for input
+- **Ready** (green) — displays "Idle." with no additional instructional text
 - **Integrating** (yellow, animated spinner) — a submission is being processed; if
   additional submissions are queued, the display shows the queue depth (e.g.,
   "Integrating (1 in queue)..."). The queue count updates immediately when new
@@ -142,7 +150,7 @@ the Ready state with no open questions.
 - **Stream-oriented**: The user doesn't edit the spec directly. They submit a stream
   of natural-language messages — additions, corrections, elaborations, deletions — and
   the integrator reconciles them into the knowledge base. Questions can be answered
-  either through the dedicated Open questions tab (which provides structured
+  either through the dedicated Open Questions tab (which provides structured
   answer-in-place functionality) or implicitly through free-form text input.
 - **Furiously mutative**: The specwriter's core operation is aligning the spec to
   whatever the user says. What the user writes becomes the truth of specification —
@@ -175,7 +183,7 @@ the Ready state with no open questions.
   (Q1, Q2, ...) that persist across integrations. New questions continue from the
   highest existing ID. Answered or irrelevant questions are removed. There is no
   artificial cap on the number of questions — the dedicated scrollable list view
-  in the Open questions tab handles any number. Each question is assigned a
+  in the Open Questions tab handles any number. Each question is assigned a
   **priority** (1–9, where 1 = low and 9 = high) so the user can focus on the most
   impactful questions first, enabling more efficient information gathering. Priority
   is based on two factors: how critical it is that this specific question gets

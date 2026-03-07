@@ -8,9 +8,9 @@ Feature: Spec Integration
     And the specwriter is running with a mock command
 
   Scenario: Application starts with a ready screen
-    Then the screen should show "Ready"
-    And the screen should show "Text input"
-    And the screen should show "Open questions"
+    Then the screen should show "Idle."
+    And the screen should show "Text Input"
+    And the screen should show "Open Questions"
     And the screen should show "Ctrl+S"
 
   Scenario: Spec directory does not exist at launch
@@ -22,7 +22,7 @@ Feature: Spec Integration
     And I wait for integration to complete
     Then the spec README should exist
     And the spec should contain "login"
-    And the screen should show "Ready"
+    And the screen should show "Idle."
 
   Scenario: Subsequent messages update the existing spec
     Given the spec README already contains "# Spec\n\nThe app has a login page."
@@ -34,7 +34,7 @@ Feature: Spec Integration
   Scenario: Submitting empty text does nothing
     When I type "   "
     And I press Ctrl+S
-    Then the screen should show "Ready"
+    Then the screen should show "Idle."
 
   Scenario: Input is cleared after submission
     When I type "Some requirement"
@@ -51,4 +51,4 @@ Feature: Spec Integration
     And I wait for all integrations to finish
     Then the spec should contain "search"
     And the spec should contain "filtering"
-    And the screen should show "Ready"
+    And the screen should show "Idle."

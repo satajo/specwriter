@@ -26,4 +26,4 @@ Feature: Answer Dialog
     And I type "OAuth2"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Ready"
+    Then the screen should show "Idle."

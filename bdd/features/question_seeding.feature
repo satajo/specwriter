@@ -22,5 +22,5 @@ Feature: Startup with Existing Spec
 
   Scenario: Starting without an existing spec shows no questions
     Given the specwriter is running with a mock command
-    Then the screen should show "Ready"
-    And the screen should show "Open questions (0)"
+    Then the screen should show "Idle."
+    And the screen should show "Open Questions (0)"

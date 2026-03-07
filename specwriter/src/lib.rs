@@ -49,7 +49,7 @@ impl App {
             input: String::new(),
             cursor_pos: 0,
             questions: Vec::new(),
-            status: "Ready. Type your requirements and press Ctrl+S to submit.".into(),
+            status: "Idle.".into(),
             state: AppState::Idle,
             tick: 0,
             integrator,
@@ -119,7 +119,7 @@ impl App {
             }
             IntegratorMessage::IntegrationComplete => {
                 self.state = AppState::Idle;
-                self.status = "Ready. Type your requirements and press Ctrl+S to submit.".into();
+                self.status = "Idle.".into();
             }
             IntegratorMessage::StatusUpdate(s) => {
                 if s.contains("Error") {
@@ -596,8 +596,8 @@ impl AppRunner {
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        // The indicator icon is at column 1, row 0 (plain text status, after leading space)
-        let cell = &buf[(1, 0)];
+        // The indicator icon is at column 0, row 0 (plain text status, no leading space)
+        let cell = &buf[(0, 0)];
         match cell.fg {
             Color::Yellow | Color::LightYellow => "yellow".into(),
             Color::Red | Color::LightRed => "red".into(),
@@ -617,7 +617,7 @@ impl AppRunner {
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        buf[(1, 0)].symbol().to_string()
+        buf[(0, 0)].symbol().to_string()
     }
 
     /// Get a snapshot of the indicator's visual state (symbol + raw fg color debug string)
@@ -627,7 +627,7 @@ impl AppRunner {
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        let cell = &buf[(1, 0)];
+        let cell = &buf[(0, 0)];
         format!("{}|{:?}", cell.symbol(), cell.fg)
     }
 }

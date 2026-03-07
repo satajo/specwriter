@@ -24,7 +24,7 @@ Feature: Queue Progress
     When I wait for all integrations to finish
     Then the spec should contain "search"
     And the spec should contain "filtering"
-    And the screen should show "Ready"
+    And the screen should show "Idle."
 
   Scenario: Queue count updates immediately on new submission
     Given the specwriter is running with a slow mock command
@@ -38,4 +38,4 @@ Feature: Queue Progress
     And I wait for status to contain "2 in queue"
     Then the screen should show "2 in queue"
     When I wait for all integrations to finish
-    Then the screen should show "Ready"
+    Then the screen should show "Idle."
