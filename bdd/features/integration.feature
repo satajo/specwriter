@@ -19,7 +19,7 @@ Feature: Spec Integration
     And I wait for integration to complete
     Then SPEC.md should exist
     And SPEC.md should contain "login"
-    And the screen should show "Integration complete"
+    And the screen should show "Ready"
 
   Scenario: Subsequent messages update the existing spec
     Given SPEC.md already contains "# Spec\n\nThe app has a login page."
@@ -48,4 +48,4 @@ Feature: Spec Integration
     And I wait for all integrations to finish
     Then SPEC.md should contain "search"
     And SPEC.md should contain "filtering"
-    And the screen should show "Integration complete"
+    And the screen should show "Ready"

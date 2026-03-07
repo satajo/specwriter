@@ -44,5 +44,18 @@ if echo "$PROMPT" | grep -qi "project"; then
     echo "projects" >> "$SPEC"
 fi
 
+# If open questions were passed as context, mark that we're questions-aware
+if echo "$PROMPT" | grep -qi "OPEN QUESTIONS"; then
+    echo "questions-aware" >> "$SPEC"
+fi
+
 echo "I have integrated the requirements into SPEC.md."
-echo 'QUESTIONS:["What are the authentication requirements?","Should there be role-based access?","What is the target platform?"]'
+
+# Output different questions based on prompt content
+if echo "$PROMPT" | grep -qi "search\|filter"; then
+    echo 'QUESTIONS:["What search fields are needed?","Should filtering support multiple criteria?"]'
+elif echo "$PROMPT" | grep -qi "project"; then
+    echo 'QUESTIONS:["How are projects organized?","What project metadata is needed?"]'
+else
+    echo 'QUESTIONS:["What are the authentication requirements?","Should there be role-based access?","What is the target platform?"]'
+fi

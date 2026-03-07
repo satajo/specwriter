@@ -73,11 +73,13 @@ impl App {
     pub fn update_from_integrator(&mut self, msg: IntegratorMessage) {
         match msg {
             IntegratorMessage::QuestionsUpdated(q) => self.questions = q,
+            IntegratorMessage::IntegrationComplete => {
+                self.state = AppState::Idle;
+                self.status = "Ready. Type your requirements and press Ctrl+S to submit.".into();
+            }
             IntegratorMessage::StatusUpdate(s) => {
                 if s.contains("Error") {
                     self.state = AppState::Error;
-                } else if s.contains("complete") {
-                    self.state = AppState::Idle;
                 }
                 self.status = s;
             }
@@ -296,7 +298,7 @@ impl AppRunner {
         }
     }
 
-    /// Wait for an integration cycle to complete (status contains "complete" or "Error").
+    /// Wait for an integration cycle to complete (IntegrationComplete or Error).
     pub async fn wait_for_integration(&mut self) {
         let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
         while tokio::time::Instant::now() < deadline {
@@ -307,10 +309,11 @@ impl AppRunner {
             .await
             {
                 Ok(Some(msg)) => {
-                    let done = matches!(
-                        &msg,
-                        IntegratorMessage::StatusUpdate(s) if s.contains("complete") || s.contains("Error")
-                    );
+                    let done = matches!(&msg, IntegratorMessage::IntegrationComplete)
+                        || matches!(
+                            &msg,
+                            IntegratorMessage::StatusUpdate(s) if s.contains("Error")
+                        );
                     self.app.update_from_integrator(msg);
                     if done {
                         // Drain anything else that arrived
@@ -325,6 +328,32 @@ impl AppRunner {
             }
         }
         panic!("Timed out waiting for integration to complete");
+    }
+
+    /// Wait for the status to contain a specific string, processing messages until it does.
+    pub async fn wait_for_status_to_contain(&mut self, needle: &str) {
+        let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
+        while tokio::time::Instant::now() < deadline {
+            match tokio::time::timeout(
+                tokio::time::Duration::from_millis(100),
+                self.ui_rx.recv(),
+            )
+            .await
+            {
+                Ok(Some(msg)) => {
+                    self.app.update_from_integrator(msg);
+                    if self.app.status.contains(needle) {
+                        return;
+                    }
+                }
+                Ok(None) => return,
+                Err(_) => continue,
+            }
+        }
+        panic!(
+            "Timed out waiting for status to contain '{}'. Current status: '{}'",
+            needle, self.app.status
+        );
     }
 
     /// Wait until all pending integrations are done (no new completions for 500ms).

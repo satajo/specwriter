@@ -14,16 +14,26 @@ Feature: Question Generation
     Then the screen should show "1."
     And the screen should not show "No open questions"
 
-  Scenario: Questions are refreshed on subsequent integrations
-    When I type "Users can create projects"
+  Scenario: Questions are replaced each integration
+    When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "1."
-    When I type "Projects have a name and description"
+    Then the screen should show "What are the authentication requirements?"
+    When I type "Users need to search for products"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "1."
-    And the screen should not show "No open questions"
+    Then the screen should show "What search fields are needed?"
+    And the screen should not show "What are the authentication requirements?"
+
+  Scenario: Open questions are provided as context to the integrator
+    When I type "The app needs user authentication"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then the screen should show "What are the authentication requirements?"
+    When I type "Add a dashboard"
+    And I press Ctrl+S
+    And I wait for integration to complete
+    Then SPEC.md should contain "questions-aware"
 
   Scenario: No questions when integrator output has none
     Given the specwriter is running with a no-questions mock

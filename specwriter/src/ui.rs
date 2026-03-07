@@ -48,7 +48,6 @@ pub fn draw(f: &mut Frame, app: &App) {
     } else {
         app.questions
             .iter()
-            .take(3)
             .enumerate()
             .map(|(i, q)| {
                 Line::from(format!("  {}. {}", i + 1, q)).yellow()
@@ -79,7 +78,6 @@ pub fn draw(f: &mut Frame, app: &App) {
     ));
 
     // Help line
-    let help = Paragraph::new(" Ctrl+C: quit | Ctrl+S: submit | Enter: newline")
-        .style(Style::default().fg(Color::DarkGray));
+    let help = Paragraph::new(" Ctrl+C: quit | Ctrl+S: submit | Enter: newline");
     f.render_widget(help, chunks[3]);
 }

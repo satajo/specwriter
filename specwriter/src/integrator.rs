@@ -6,6 +6,7 @@ use tokio::sync::mpsc;
 pub enum IntegratorMessage {
     QuestionsUpdated(Vec<String>),
     StatusUpdate(String),
+    IntegrationComplete,
 }
 
 #[derive(Debug, Clone)]
@@ -56,34 +57,58 @@ async fn integrator_loop(
     config: IntegratorConfig,
 ) {
     let spec_path = config.working_dir.join("SPEC.md");
-    let mut pending: Vec<String> = Vec::new();
+    let mut current_questions: Vec<String> = Vec::new();
 
     loop {
         let msg = match rx.recv().await {
             Some(m) => m,
             None => return,
         };
-        pending.push(msg);
+        let mut queue = vec![msg];
 
+        // Brief window to collect rapid submissions before processing starts
+        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
         while let Ok(msg) = rx.try_recv() {
-            pending.push(msg);
+            queue.push(msg);
         }
 
-        let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-            "Integrating...".into(),
-        ));
+        // Process each message one at a time
+        let mut i = 0;
+        let mut errored = false;
+        while i < queue.len() {
+            // Check for new messages before each step
+            while let Ok(msg) = rx.try_recv() {
+                queue.push(msg);
+            }
 
-        let has_spec = spec_path.exists();
-        let messages_text = pending
-            .iter()
-            .enumerate()
-            .map(|(i, m)| format!("Message {}:\n{}", i + 1, m))
-            .collect::<Vec<_>>()
-            .join("\n\n---\n\n");
+            let total = queue.len();
+            let status = if total >= 2 {
+                format!("Integrating {}/{}...", i + 1, total)
+            } else {
+                "Integrating...".into()
+            };
+            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
 
-        let prompt = if has_spec {
-            format!(
-                r#"You are a requirements integrator. Read the existing SPEC.md file, then integrate the following new user messages into it. The goal is to maintain a single cohesive requirements/feature specification document.
+            let has_spec = spec_path.exists();
+            let message = &queue[i];
+
+            let questions_context = if current_questions.is_empty() {
+                String::new()
+            } else {
+                let q_list: Vec<String> = current_questions
+                    .iter()
+                    .enumerate()
+                    .map(|(i, q)| format!("{}. {}", i + 1, q))
+                    .collect();
+                format!(
+                    "\n\nOPEN QUESTIONS (currently pending — do not re-ask these):\n{}\n",
+                    q_list.join("\n")
+                )
+            };
+
+            let prompt = if has_spec {
+                format!(
+                    r#"You are a requirements integrator. Read the existing SPEC.md file, then integrate the following new user message into it. The goal is to maintain a single cohesive requirements/feature specification document.
 
 IMPORTANT RULES:
 - Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
@@ -91,18 +116,18 @@ IMPORTANT RULES:
 - Preserve the user's intent and language where possible.
 - Keep the document well-organized with clear sections.
 
-New messages to integrate:
+User message:
 
-{messages_text}
+{message}{questions_context}
 
-After reading the existing SPEC.md, rewrite it with the new messages integrated. Write the updated content to SPEC.md.
+After reading the existing SPEC.md, rewrite it with the new message integrated. Write the updated content to SPEC.md.
 
-Then, think of up to 3 open questions that would help clarify or improve the spec. These should be things the user should think about or clarify. Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
+Then, generate a fresh set of open questions based on the CURRENT state of the spec. These should be the most important things the user should think about or clarify, sorted by priority (most important first). Do NOT carry over old questions — generate them anew from the spec. Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
 QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
-            )
-        } else {
-            format!(
-                r#"You are a requirements integrator. Create a new SPEC.md file based on the following user messages. The goal is to create a cohesive requirements/feature specification document.
+                )
+            } else {
+                format!(
+                    r#"You are a requirements integrator. Create a new SPEC.md file based on the following user message. The goal is to create a cohesive requirements/feature specification document.
 
 IMPORTANT RULES:
 - Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
@@ -110,34 +135,38 @@ IMPORTANT RULES:
 - Preserve the user's intent and language where possible.
 - Keep the document well-organized with clear sections.
 
-User messages:
+User message:
 
-{messages_text}
+{message}{questions_context}
 
-Create a SPEC.md file with these requirements integrated into a cohesive document.
+Create a SPEC.md file with this requirement integrated into a cohesive document.
 
-Then, think of up to 3 open questions that would help clarify or improve the spec. These should be things the user should think about or clarify. Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
+Then, generate a fresh set of open questions based on the CURRENT state of the spec. These should be the most important things the user should think about or clarify, sorted by priority (most important first). Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
 QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
-            )
-        };
+                )
+            };
 
-        match run_command(&config, &prompt).await {
-            Ok(output) => {
-                pending.clear();
-                let questions = parse_questions(&output);
-                let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
-                let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-                    "Integration complete. SPEC.md updated.".into(),
-                ));
+            match run_command(&config, &prompt).await {
+                Ok(output) => {
+                    current_questions = parse_questions(&output);
+                    let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(current_questions.clone()));
+                }
+                Err(e) => {
+                    let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
+                    errored = true;
+                    break;
+                }
             }
-            Err(e) => {
-                let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-                    format!("Error: {e}"),
-                ));
-            }
+
+            i += 1;
+        }
+
+        if !errored {
+            let _ = ui_tx.send(IntegratorMessage::IntegrationComplete);
         }
     }
 }
+
 
 async fn run_command(config: &IntegratorConfig, prompt: &str) -> Result<String, String> {
     let output = Command::new(&config.command)
