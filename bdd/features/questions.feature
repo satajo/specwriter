@@ -11,59 +11,59 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
+    Then the screen should show "Q1 (p8)."
     And the screen should not show "No open questions"
 
   Scenario: Questions retain identifiers across integrations
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
+    Then the screen should show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
     When I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
+    Then the screen should show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
 
   Scenario: New questions get identifiers continuing from the highest existing
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
+    Then the screen should show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
     When I type "Users need to search for products"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q4."
-    And the screen should not show "Q3."
+    Then the screen should show "Q4 (p5)."
+    And the screen should not show "Q3 (p4)."
 
   Scenario: Answered questions are removed while unrelated questions persist
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
+    Then the screen should show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
     When I type "We will use OAuth2 for authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should not show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
-    And the screen should show "Q4."
+    Then the screen should not show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
+    And the screen should show "Q4 (p7)."
 
   Scenario: Questions are placed under a Questions heading in spec files
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     Then the spec should contain "## Questions"
-    And the spec should contain "Q1:"
-    And the spec should contain "Q2:"
-    And the spec should contain "Q3:"
+    And the spec should contain "Q1"
+    And the spec should contain "Q2"
+    And the spec should contain "Q3"
 
   Scenario: No questions when integrator output has none
     Given the specwriter is running with a no-questions mock
@@ -76,13 +76,13 @@ Feature: Question Generation
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
+    Then the screen should show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
     When I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q2."
-    And the screen should show "Q3."
+    Then the screen should show "Q1 (p8)."
+    And the screen should show "Q2 (p6)."
+    And the screen should show "Q3 (p4)."
     And the screen should show "What are the authentication requirements?"

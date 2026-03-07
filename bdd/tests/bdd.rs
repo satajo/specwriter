@@ -249,8 +249,8 @@ async fn screen_should_not_show(world: &mut SpecwriterWorld, expected: String) {
 #[then(expr = "question {string} should appear before {string} on screen")]
 async fn question_appears_before(world: &mut SpecwriterWorld, first: String, second: String) {
     let screen = world.runner().render();
-    let first_q = format!("{}.", first);
-    let second_q = format!("{}.", second);
+    let first_q = format!("{} (p", first);
+    let second_q = format!("{} (p", second);
     let pos_first = screen.find(&first_q).unwrap_or_else(|| {
         panic!("'{}' not found on screen:\n{}", first_q, screen)
     });

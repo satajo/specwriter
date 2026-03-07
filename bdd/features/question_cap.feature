@@ -11,10 +11,10 @@ Feature: Question Pool Cap
     When I type "Build a large application"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q1."
-    And the screen should show "Q9."
+    Then the screen should show "Q1 (p9)."
+    And the screen should show "Q9 (p1)."
     When I type "Add more features"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the screen should show "Q9."
-    And the screen should not show "Q10."
+    Then the screen should show "Q9 (p1)."
+    And the screen should not show "Q10"

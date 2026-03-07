@@ -139,6 +139,7 @@ SPEC STRUCTURE:
 - You may create additional spec files or subdirectories as needed
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
+- Limit line lengths to approximately 120 characters for terminal readability
 
 SPEC ORGANIZATION:
 - You own the organization of spec/ — create, split, merge, rename files as you see fit
@@ -186,6 +187,7 @@ SPEC STRUCTURE:
 - For a small initial spec, README.md should contain all the substance
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
+- Limit line lengths to approximately 120 characters for terminal readability
 
 CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.

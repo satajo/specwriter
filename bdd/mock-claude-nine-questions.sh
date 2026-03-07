@@ -16,6 +16,6 @@ else
 fi
 
 printf '\n## Questions\n\n' >> "$README"
-printf 'Q1: Q one?\n\nQ2: Q two?\n\nQ3: Q three?\n\nQ4: Q four?\n\nQ5: Q five?\n\nQ6: Q six?\n\nQ7: Q seven?\n\nQ8: Q eight?\n\nQ9: Q nine?\n' >> "$README"
+printf 'Q1 (p9): Q one?\n\nQ2 (p8): Q two?\n\nQ3 (p7): Q three?\n\nQ4 (p6): Q four?\n\nQ5 (p5): Q five?\n\nQ6 (p4): Q six?\n\nQ7 (p3): Q seven?\n\nQ8 (p2): Q eight?\n\nQ9 (p1): Q nine?\n' >> "$README"
 
 echo "I have integrated the requirements."

@@ -49,7 +49,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         app.questions
             .iter()
             .map(|q| {
-                Line::from(format!("  Q{}. {} ({})", q.id, q.text, q.file)).yellow()
+                Line::from(format!("  Q{} (p{}). {} ({})", q.id, q.priority, q.text, q.file)).yellow()
             })
             .collect()
     };
