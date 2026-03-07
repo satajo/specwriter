@@ -484,12 +484,15 @@ async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: Strin
     );
 }
 
-#[then(expr = "the status indicator should be {word}")]
-async fn status_indicator_color(world: &mut SpecwriterWorld, expected_color: String) {
-    let actual = world.runner().status_indicator_color_name();
+#[then(expr = "the status line should contain {word} text")]
+async fn status_line_should_contain_colored_text(
+    world: &mut SpecwriterWorld,
+    expected_color: String,
+) {
+    let actual = world.runner().status_line_color_name();
     assert!(
         actual == expected_color,
-        "Expected status indicator to be '{}', but got '{}'",
+        "Expected status line to contain '{}' text, but found '{}'",
         expected_color,
         actual
     );

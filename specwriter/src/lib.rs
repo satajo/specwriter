@@ -641,44 +641,38 @@ impl AppRunner {
         self.app.tick();
     }
 
-    /// Get the status indicator's rendered color name ("blue", "yellow", "red", or "unknown").
-    pub fn status_indicator_color_name(&mut self) -> String {
+    /// Scan row 0 for the most prominent non-default foreground color.
+    pub fn status_line_color_name(&mut self) -> String {
         self.terminal
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        // The indicator icon is at column 0, row 0 (plain text status, no leading space)
-        let cell = &buf[(0, 0)];
-        match cell.fg {
-            Color::Yellow | Color::LightYellow => "yellow".into(),
-            Color::Red | Color::LightRed => "red".into(),
-            Color::Green | Color::LightGreen => "green".into(),
-            Color::Blue | Color::LightBlue => "blue".into(),
-            Color::Rgb(r, g, b) if g > r && g > b => "green".into(),
-            Color::Rgb(r, g, b) if b > r && b > g => "blue".into(),
-            Color::Rgb(r, g, _) if r > 200 && g > 200 => "yellow".into(),
-            Color::Rgb(r, _g, b) if r > 128 && b < 80 => "red".into(),
-            other => format!("unknown({:?})", other),
+        for x in 0..buf.area.width {
+            let cell = &buf[(x, 0)];
+            if cell.symbol().trim().is_empty() {
+                continue;
+            }
+            match cell.fg {
+                Color::Yellow | Color::LightYellow => return "yellow".into(),
+                Color::Red | Color::LightRed => return "red".into(),
+                Color::Green | Color::LightGreen => return "green".into(),
+                _ => continue,
+            }
         }
+        "none".into()
     }
 
-    /// Get the status indicator's rendered symbol.
-    pub fn status_indicator_symbol(&mut self) -> String {
-        self.terminal
-            .draw(|f| ui::draw(f, &self.app))
-            .unwrap();
-        let buf = self.terminal.backend().buffer().clone();
-        buf[(0, 0)].symbol().to_string()
-    }
-
-    /// Get a snapshot of the indicator's visual state (symbol + raw fg color debug string)
-    /// for animation comparison.
+    /// Get a snapshot of row 0 content for animation comparison.
     pub fn status_indicator_snapshot(&mut self) -> String {
         self.terminal
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
-        let cell = &buf[(0, 0)];
-        format!("{}|{:?}", cell.symbol(), cell.fg)
+        let mut s = String::new();
+        for x in 0..buf.area.width {
+            let cell = &buf[(x, 0)];
+            s.push_str(cell.symbol());
+        }
+        s.trim_end().to_string()
     }
 }

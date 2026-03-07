@@ -2,21 +2,31 @@ use ratatui::{prelude::*, widgets::*};
 
 use crate::{ActiveTab, App, AppState};
 
-// ◰ ◳ ◲ ◱ — small square rotating through corners
-const SPINNER_FRAMES: &[&str] = &["\u{25f0}", "\u{25f3}", "\u{25f2}", "\u{25f1}"];
-const SPINNER_TICKS_PER_FRAME: u64 = 1; // advance every 150ms (brisk pace)
+const SPINNER_FRAMES: &[&str] = &[
+    ".  ",
+    ".. ",
+    "...",
+    " ..",
+    "  .",
+    "   ",
+];
+const SPINNER_TICKS_PER_FRAME: u64 = 1;
 
-fn status_indicator(app: &App) -> (&str, Style) {
+fn status_line(app: &App) -> Line<'_> {
     match app.state {
         AppState::Integrating => {
             let frame = ((app.tick / SPINNER_TICKS_PER_FRAME) as usize) % SPINNER_FRAMES.len();
-            (SPINNER_FRAMES[frame], Style::default().fg(Color::Yellow))
+            Line::from(vec![
+                Span::styled(SPINNER_FRAMES[frame], Style::default().fg(Color::Yellow)),
+                Span::raw(" "),
+                Span::raw(&app.status),
+            ])
         }
         AppState::Idle => {
-            ("\u{25f3}", Style::default().fg(Color::Green)) // ◳
+            Line::from(Span::raw(&app.status))
         }
         AppState::Error => {
-            ("\u{25f1}", Style::default().fg(Color::Red)) // ◱
+            Line::from(Span::styled(&app.status, Style::default().fg(Color::Red)))
         }
     }
 }
@@ -80,12 +90,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         .split(f.area());
 
     // Status line
-    let (icon, icon_style) = status_indicator(app);
-    let status_line = Line::from(vec![
-        Span::styled(format!("{} ", icon), icon_style),
-        Span::raw(&app.status),
-    ]);
-    f.render_widget(Paragraph::new(status_line), chunks[0]);
+    f.render_widget(Paragraph::new(status_line(app)), chunks[0]);
 
     // Tab labels — no block, no borders
     let q_count = app.questions.len();
@@ -99,7 +104,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     };
     let titles = vec![
         Line::from(" Text Input ").green(),
-        Line::from(format!(" Open Questions ({}) ", q_count)).blue(),
+        Line::from(format!("Open Questions ({}) ", q_count)).blue(),
     ];
     let tabs = Tabs::new(titles)
         .select(selected)

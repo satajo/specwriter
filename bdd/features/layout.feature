@@ -8,7 +8,7 @@ Feature: Screen Layout
     And the specwriter is running with a mock command
 
   Scenario: Status line is on row 1
-    Then row 1 should start with the status icon followed by "Idle."
+    Then row 1 should start with "Idle."
 
   Scenario: Row 2 is blank
     Then row 2 should be blank
