@@ -62,11 +62,21 @@ The tab bar appears below the status area. The screen shows these areas top to b
 - **Tab content** — the active tab's content area (see below)
 - **Help bar** — a single line at the bottom showing available keyboard shortcuts
 
+### Scrolling
+
+All navigable panels — text inputs, question list, question detail, answer dialog —
+support scrolling when content exceeds the visible area. Scrolling uses
+**center-focused** behavior: the focused item (cursor line or selected entry) stays
+roughly in the middle of the viewport, except when near the beginning or end of the
+content, where the view pins to the top or bottom respectively.
+
 ### Text Input tab
 
 A multiline text area where the user types whatever they want, with a Ctrl+S submit
 hint. This is the primary input mode — the user writes free-form requirements,
-corrections, or responses and submits them for integration.
+corrections, or responses and submits them for integration. All textarea inputs
+(main input, answer dialog, etc.) must correctly handle long lines that soft-wrap
+at the edge of the widget — the caret position must remain accurate after wrapping.
 
 ### Open Questions tab
 
@@ -75,9 +85,8 @@ Each question displays its priority after the question number (e.g., "Q3 (p7): .
 and the name of the spec file it comes from, giving the user context for what area
 the question relates to.
 
-The user browses questions with arrow keys (up/down). The question list supports
-scrolling when the number of questions exceeds the visible area. The focused question
-is highlighted, and its full content is shown in a separate panel below the list.
+The user browses questions with arrow keys (up/down). The focused question is
+highlighted, and its full content is shown in a separate panel below the list.
 
 Pressing Enter on a focused question opens a dialog where the user can type an answer.
 On submission, the answer is sent to the integrator with the relevant context (e.g.,
@@ -193,20 +202,26 @@ the Ready state with no open questions.
   no built-in collaboration or multi-user support. However, since the spec files are
   plain Markdown, users can share them through normal means (e.g., committing to Git)
   if they choose.
-- **Single-project scoped**: Specwriter operates in the current project directory.
+- **Single-project scoped**: Specwriter operates in the current working directory.
+  The specs directory defaults to `specs/` but can be overridden via a command-line
+  argument (e.g., to use a different directory name). This only controls the name of
+  the specs directory — it does not change the working directory or project root.
   Multi-project workflows are out of scope — users open separate terminal sessions for
   different projects.
 - **Claude Code backend**: The integration backend is Claude Code (the Claude CLI).
   The architecture doesn't need to be backend-agnostic, but shouldn't make it
   gratuitously hard to swap in another backend in the future.
 - **Read-only project access**: When calling the underlying AI agent, the specwriter
-  must ensure the agent has only read access to the project — no writes — with the
-  sole exception of the `specs/` directory, where the agent must be allowed to write.
+  must ensure the agent has only read access to the current project directory — not
+  the entire filesystem — with the sole exception of the specs directory, where the
+  agent must be allowed to write.
 - **Token efficiency**: Specwriter should not consume unnecessarily many tokens. For
   the Claude Code CLI specifically, this means using a single session for the
   integrator — started on the first integration and resumed on subsequent ones using
   the appropriate CLI flags (e.g., `--resume` / `--session-id`). This avoids redundant
-  context re-ingestion on every integration call.
+  context re-ingestion on every integration call. If the session expires or becomes
+  invalid mid-session, specwriter should self-recover by creating a new session
+  transparently — no user intervention required.
 - **No special import**: Specwriter doesn't have a dedicated import mechanism. When
   targeted at a directory that already contains spec files, it simply operates on
   them — reading the existing content and integrating new input as usual. On startup,
@@ -225,30 +240,8 @@ Specwriter is packaged as a Nix flake that produces a `specwriter` binary.
 
 ## Questions
 
-### Q1 (p6): Scrolling in other UI panels
-
-The question list supports scrolling, but should the question detail panel, the text input area,
-and the answer dialog also scroll when content exceeds the visible area?
-
 ### Q2 (p6): Quit-during-integration behavior
 
 When the user quits with Ctrl+C while an integration is in progress, should the app wait for the
 current integration to finish, kill it immediately, or offer a choice?
 
-### Q4 (p5): Session expiry handling
-
-The spec says the integrator uses `--session-id` and `--resume` for token efficiency. What should
-happen if the Claude CLI session expires or becomes invalid mid-session? Should specwriter detect
-this and start a fresh session, or surface it as an error?
-
-### Q5 (p4): Target directory configuration
-
-Should specwriter accept a target directory as a command-line argument, or does it always operate
-in the current working directory? The spec says "current project directory" but doesn't specify
-how that's determined.
-
-### Q6 (p4): Agent read access scope
-
-The implementation passes `--allowedTools Edit,Read,Write` to the Claude CLI, but the `Read` tool
-gives the agent read access to the entire filesystem, not just the project. Is this intentional,
-or should the agent's read access be scoped to the project directory?

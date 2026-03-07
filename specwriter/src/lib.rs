@@ -41,6 +41,8 @@ pub struct App {
     pub active_tab: ActiveTab,
     pub question_focus: usize,
     pub answer_dialog: Option<AnswerDialog>,
+    pub input_scroll: u16,
+    pub detail_scroll: u16,
 }
 
 impl App {
@@ -57,6 +59,8 @@ impl App {
             active_tab: ActiveTab::TextInput,
             question_focus: 0,
             answer_dialog: None,
+            input_scroll: 0,
+            detail_scroll: 0,
         }
     }
 
@@ -73,7 +77,7 @@ impl App {
         config: IntegratorConfig,
     ) -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
-        let initial_questions = integrator::scan_questions(&config.working_dir.join("specs"));
+        let initial_questions = integrator::scan_questions(&config.working_dir.join(&config.spec_dir_name));
         let integrator = IntegratorHandle::new(ui_tx, config);
         let mut app = Self::new(integrator);
         app.questions = initial_questions;

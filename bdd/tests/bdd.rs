@@ -79,6 +79,7 @@ async fn running_with_mock(world: &mut SpecwriterWorld) {
         command: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -93,6 +94,7 @@ async fn running_with_no_questions_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -103,6 +105,34 @@ async fn running_with_command(world: &mut SpecwriterWorld, command: String) {
         command,
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
+    };
+    world.start_with_config(config);
+}
+
+#[given(expr = "the specwriter is running with specs dir {string} and a mock command")]
+async fn running_with_custom_specs_dir(world: &mut SpecwriterWorld, spec_dir: String) {
+    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = IntegratorConfig {
+        command: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+        spec_dir_name: spec_dir,
+    };
+    world.start_with_config(config);
+}
+
+#[given("the specwriter is running with a session-expiry mock")]
+async fn running_with_session_expiry_mock(world: &mut SpecwriterWorld) {
+    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let config = IntegratorConfig {
+        command: bdd_dir
+            .join("mock-claude-session-expiry.sh")
+            .to_string_lossy()
+            .into(),
+        args: Vec::new(),
+        working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -117,6 +147,7 @@ async fn running_with_slow_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -131,6 +162,7 @@ async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -146,6 +178,7 @@ async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -160,6 +193,7 @@ async fn running_with_prioritized_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -168,6 +202,28 @@ async fn running_with_prioritized_mock(world: &mut SpecwriterWorld) {
 async fn spec_readme_already_contains(world: &mut SpecwriterWorld, content: String) {
     let content = content.replace("\\n", "\n");
     let spec_dir = world.workdir_path().join("specs");
+    std::fs::create_dir_all(&spec_dir).unwrap();
+    std::fs::write(spec_dir.join("README.md"), content).unwrap();
+}
+
+#[given("the spec README already contains 20 questions")]
+async fn spec_readme_contains_20_questions(world: &mut SpecwriterWorld) {
+    let spec_dir = world.workdir_path().join("specs");
+    std::fs::create_dir_all(&spec_dir).unwrap();
+    let mut content = String::from("# App\n\n## Questions\n\n");
+    for i in 1..=20 {
+        content.push_str(&format!(
+            "### Q{} (p5): Question number {}?\n\nBody for question {}.\n\n",
+            i, i, i
+        ));
+    }
+    std::fs::write(spec_dir.join("README.md"), content).unwrap();
+}
+
+#[given(expr = "specs are in directory {string} with content {string}")]
+async fn specs_in_custom_dir(world: &mut SpecwriterWorld, dir: String, content: String) {
+    let content = content.replace("\\n", "\n");
+    let spec_dir = world.workdir_path().join(&dir);
     std::fs::create_dir_all(&spec_dir).unwrap();
     std::fs::write(spec_dir.join("README.md"), content).unwrap();
 }
@@ -226,6 +282,24 @@ async fn press_up(world: &mut SpecwriterWorld) {
     world
         .runner()
         .send_key(specwriter::KeyCode::Up, specwriter::KeyModifiers::NONE);
+}
+
+#[when(expr = "I press Down {int} times")]
+async fn press_down_n_times(world: &mut SpecwriterWorld, n: usize) {
+    for _ in 0..n {
+        world
+            .runner()
+            .send_key(specwriter::KeyCode::Down, specwriter::KeyModifiers::NONE);
+    }
+}
+
+#[when(expr = "I press Up {int} times")]
+async fn press_up_n_times(world: &mut SpecwriterWorld, n: usize) {
+    for _ in 0..n {
+        world
+            .runner()
+            .send_key(specwriter::KeyCode::Up, specwriter::KeyModifiers::NONE);
+    }
 }
 
 #[when("I press Esc")]
@@ -321,6 +395,20 @@ async fn detail_panel_should_show(world: &mut SpecwriterWorld, expected: String)
         "Detail panel should contain '{}', but got:\n{}",
         expected,
         detail_section
+    );
+}
+
+#[then(expr = "the question list should show {string}")]
+async fn question_list_should_show(world: &mut SpecwriterWorld, expected: String) {
+    let screen = world.runner().render();
+    // The question list is between the tab bar and the "Details" panel
+    let list_end = screen.find("Details").unwrap_or(screen.len());
+    let list_section = &screen[..list_end];
+    assert!(
+        list_section.contains(&expected),
+        "Question list should contain '{}', but got:\n{}",
+        expected,
+        list_section
     );
 }
 

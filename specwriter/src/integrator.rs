@@ -23,19 +23,33 @@ pub struct IntegratorConfig {
     pub command: String,
     pub args: Vec<String>,
     pub working_dir: PathBuf,
+    pub spec_dir_name: String,
 }
 
 impl Default for IntegratorConfig {
     fn default() -> Self {
+        let working_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
         Self {
             command: "claude".into(),
-            args: vec![
-                "--print".into(),
-                "--allowedTools".into(),
-                "Edit,Read,Write".into(),
-            ],
-            working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+            args: Vec::new(),
+            working_dir,
+            spec_dir_name: "specs".into(),
         }
+    }
+}
+
+impl IntegratorConfig {
+    /// Build CLI args with properly scoped tool permissions.
+    /// Read is scoped to the working directory, Edit/Write to the specs directory.
+    pub fn build_args(&self) -> Vec<String> {
+        let spec_path = format!("{}/**", self.spec_dir_name);
+        let mut args = vec![
+            "--print".into(),
+            "--allowedTools".into(),
+            format!("Read,Edit({}),Write({})", spec_path, spec_path),
+        ];
+        args.extend(self.args.iter().cloned());
+        args
     }
 }
 
@@ -64,9 +78,9 @@ async fn integrator_loop(
     ui_tx: mpsc::UnboundedSender<IntegratorMessage>,
     config: IntegratorConfig,
 ) {
-    let spec_dir = config.working_dir.join("specs");
+    let spec_dir = config.working_dir.join(&config.spec_dir_name);
     // Session ID for CLI session reuse across integrations
-    let session_id = Uuid::new_v4().to_string();
+    let mut session_id = Uuid::new_v4().to_string();
 
     // Main integration loop
     let mut first_call = true;
@@ -118,11 +132,12 @@ async fn integrator_loop(
                     .unwrap_or(true);
             let message = &queue[i];
 
+            let sd = &config.spec_dir_name;
             let prompt = if !spec_is_empty {
                 format!(
-                    r#"You are a requirements integrator managing a spec knowledge base under the specs/ directory.
+                    r#"You are a requirements integrator managing a spec knowledge base under the {sd}/ directory.
 
-Read specs/README.md to orient yourself, then read whatever other spec files you deem relevant for integrating the following user message.
+Read {sd}/README.md to orient yourself, then read whatever other spec files you deem relevant for integrating the following user message.
 
 RULES:
 - Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
@@ -133,8 +148,8 @@ RULES:
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
 SPEC STRUCTURE:
-- All spec files live under specs/
-- specs/README.md is the primary entrypoint — it should always exist and be useful
+- All spec files live under {sd}/
+- {sd}/README.md is the primary entrypoint — it should always exist and be useful
 - For a small spec, README.md may contain all the substance; as the knowledge base grows, it shifts toward an index role pointing readers to the right spec files
 - Prefer keeping README.md self-contained and substantive — err on the side of a longer README over premature splitting
 - You may create additional spec files or subdirectories as needed
@@ -143,7 +158,7 @@ SPEC STRUCTURE:
 - Limit line lengths to approximately 120 characters for terminal readability
 
 SPEC ORGANIZATION:
-- You own the organization of specs/ — create, split, merge, rename files as you see fit
+- You own the organization of {sd}/ — create, split, merge, rename files as you see fit
 - Use whatever structure and naming makes sense for the material
 - Clean up empty or low-value files
 - READMEs should add value through descriptions and context, not mirror directory structure
@@ -176,7 +191,7 @@ User message:
                 )
             } else {
                 format!(
-                    r#"You are a requirements integrator. Create a new spec knowledge base under the specs/ directory based on the following user message.
+                    r#"You are a requirements integrator. Create a new spec knowledge base under the {sd}/ directory based on the following user message.
 
 RULES:
 - Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
@@ -186,7 +201,7 @@ RULES:
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
 SPEC STRUCTURE:
-- Create specs/README.md as the primary entrypoint
+- Create {sd}/README.md as the primary entrypoint
 - For a small initial spec, README.md should contain all the substance
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
@@ -246,11 +261,37 @@ User message:
                     let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
                 }
                 Err(e) => {
-                    // Discard all remaining queued items
-                    while let Ok(_) = rx.try_recv() {}
-                    let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
-                    errored = true;
-                    break;
+                    // If this was a --resume call, try recovering with a fresh session
+                    if !first_call {
+                        session_id = Uuid::new_v4().to_string();
+                        first_call = true;
+                        let fresh_args = vec![
+                            "--session-id".to_string(),
+                            session_id.clone(),
+                        ];
+                        let retry = run_command(&config, &fresh_args, &prompt).await;
+                        match retry {
+                            Ok(_) => {
+                                first_call = false;
+                                let questions = scan_questions(&spec_dir);
+                                let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
+                            }
+                            Err(e2) => {
+                                while let Ok(_) = rx.try_recv() {}
+                                let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
+                                    format!("Error: {e2}"),
+                                ));
+                                errored = true;
+                                break;
+                            }
+                        }
+                    } else {
+                        // First call failed — no recovery possible
+                        while let Ok(_) = rx.try_recv() {}
+                        let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
+                        errored = true;
+                        break;
+                    }
                 }
             }
 
@@ -266,7 +307,7 @@ User message:
 
 async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &str) -> Result<String, String> {
     let output = Command::new(&config.command)
-        .args(&config.args)
+        .args(&config.build_args())
         .args(extra_args)
         .arg("-p")
         .arg(prompt)
