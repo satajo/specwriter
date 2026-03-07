@@ -110,11 +110,23 @@ async fn integrator_loop(
                 format!(
                     r#"You are a requirements integrator. Read the existing SPEC.md file, then integrate the following new user message into it. The goal is to maintain a single cohesive requirements/feature specification document.
 
-IMPORTANT RULES:
+RULES:
 - Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
 - You are integrating a thought-stream of requirements into a cohesive document, not writing a technical spec.
 - Preserve the user's intent and language where possible.
-- Keep the document well-organized with clear sections.
+- Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain document coherence and quality, while always preserving intent.
+- If the input seems unrelated to existing content, do not ignore it. The user may be switching topics or expanding scope. Create a new topic area, weave it into existing sections, or restructure the document as needed.
+- Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
+
+DOCUMENT STRUCTURE:
+The spec should include:
+- An overview of the project and what it does
+- Requirements organized by topic area
+- Acceptance criteria that capture what "done" looks like for key requirements
+Let this structure evolve naturally as content is added — organize into these sections as it makes sense rather than forcing a rigid template.
+
+CODEBASE CONTEXT:
+You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance. The depth of exploration should match the specificity of the user's input: specific features warrant targeted context, general input warrants broader exploration.
 
 User message:
 
@@ -122,18 +134,36 @@ User message:
 
 After reading the existing SPEC.md, rewrite it with the new message integrated. Write the updated content to SPEC.md.
 
-Then, generate a fresh set of open questions based on the CURRENT state of the spec. These should be the most important things the user should think about or clarify, sorted by priority (most important first). Do NOT carry over old questions — generate them anew from the spec. Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
+QUESTIONS:
+Generate a fresh set of open questions based on the CURRENT state of the spec. These should be the most important things the user should think about or clarify, sorted by priority (most important first). Do NOT carry over old questions — generate them anew from the spec.
+
+Question rules:
+- If you detect conflicting or contradictory requirements, surface them as clarifying questions. Do not silently resolve or ignore conflicts.
+- Questions must stay grounded in the topics and themes present in the spec. Do not drift into tangential areas or introduce concerns the user hasn't raised. Questions should feel like natural follow-ups to what's already described.
+
+Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
 QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
                 )
             } else {
                 format!(
                     r#"You are a requirements integrator. Create a new SPEC.md file based on the following user message. The goal is to create a cohesive requirements/feature specification document.
 
-IMPORTANT RULES:
+RULES:
 - Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
 - You are integrating a thought-stream of requirements into a cohesive document, not writing a technical spec.
 - Preserve the user's intent and language where possible.
-- Keep the document well-organized with clear sections.
+- Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain document coherence and quality, while always preserving intent.
+- Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
+
+DOCUMENT STRUCTURE:
+The spec should include:
+- An overview of the project and what it does
+- Requirements organized by topic area
+- Acceptance criteria that capture what "done" looks like for key requirements
+Let this structure evolve naturally as content is added — organize into these sections as it makes sense rather than forcing a rigid template.
+
+CODEBASE CONTEXT:
+You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance. The depth of exploration should match the specificity of the user's input: specific features warrant targeted context, general input warrants broader exploration.
 
 User message:
 
@@ -141,7 +171,14 @@ User message:
 
 Create a SPEC.md file with this requirement integrated into a cohesive document.
 
-Then, generate a fresh set of open questions based on the CURRENT state of the spec. These should be the most important things the user should think about or clarify, sorted by priority (most important first). Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
+QUESTIONS:
+Generate a fresh set of open questions based on the CURRENT state of the spec. These should be the most important things the user should think about or clarify, sorted by priority (most important first).
+
+Question rules:
+- If you detect conflicting or contradictory requirements, surface them as clarifying questions. Do not silently resolve or ignore conflicts.
+- Questions must stay grounded in the topics and themes present in the spec. Do not drift into tangential areas or introduce concerns the user hasn't raised. Questions should feel like natural follow-ups to what's already described.
+
+Output the questions as a JSON array of strings on the LAST line of your response, prefixed with "QUESTIONS:" like this:
 QUESTIONS:["Question 1?","Question 2?","Question 3?"]"#
                 )
             };
