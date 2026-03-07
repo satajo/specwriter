@@ -500,6 +500,35 @@ impl AppRunner {
         lines.join("\n")
     }
 
+    /// Check if text at a given row contains bold cells matching the needle.
+    pub fn has_bold_text_on_row(&mut self, row: u16, needle: &str) -> bool {
+        self.terminal
+            .draw(|f| ui::draw(f, &self.app))
+            .unwrap();
+        let buf = self.terminal.backend().buffer().clone();
+        if row >= buf.area.height {
+            return false;
+        }
+        // Build the row text and find the needle position
+        let mut row_text = String::new();
+        for x in 0..buf.area.width {
+            row_text.push_str(buf[(x, row)].symbol());
+        }
+        if let Some(start) = row_text.find(needle) {
+            // Check that at least the first non-space character in the needle range is bold
+            for x in start..(start + needle.len()).min(buf.area.width as usize) {
+                let cell = &buf[(x as u16, row)];
+                if cell.symbol().trim().is_empty() {
+                    continue;
+                }
+                return cell
+                    .modifier
+                    .contains(ratatui::style::Modifier::BOLD);
+            }
+        }
+        false
+    }
+
     /// Send a key event through the full handle_key path, then drain integrator messages.
     pub fn send_key(&mut self, code: KeyCode, modifiers: KeyModifiers) {
         let key = KeyEvent::new(code, modifiers);

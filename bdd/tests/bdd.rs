@@ -553,6 +553,127 @@ async fn nix_output_contains_binary(_world: &mut SpecwriterWorld, name: String) 
     );
 }
 
+fn get_row(world: &mut SpecwriterWorld, row: usize) -> String {
+    let screen = world.runner().render();
+    let lines: Vec<&str> = screen.split('\n').collect();
+    assert!(
+        row >= 1 && row <= lines.len(),
+        "Row {} out of range (screen has {} rows)",
+        row,
+        lines.len()
+    );
+    lines[row - 1].to_string()
+}
+
+#[then(expr = "row {int} should start with the status icon followed by {string}")]
+async fn row_starts_with_status_icon(world: &mut SpecwriterWorld, row: usize, text: String) {
+    let line = get_row(world, row);
+    // Status icon is a multi-byte unicode char followed by a space
+    let after_icon = line.trim_start().chars().next().map(|c| !c.is_ascii()).unwrap_or(false);
+    assert!(
+        after_icon,
+        "Row {} should start with a status icon, but got: '{}'",
+        row, line
+    );
+    assert!(
+        line.contains(&text),
+        "Row {} should contain '{}', but got: '{}'",
+        row, text, line
+    );
+}
+
+#[then(expr = "row {int} should be blank")]
+async fn row_should_be_blank(world: &mut SpecwriterWorld, row: usize) {
+    let line = get_row(world, row);
+    assert!(
+        line.trim().is_empty(),
+        "Row {} should be blank, but got: '{}'",
+        row, line
+    );
+}
+
+#[then(expr = "row {int} should start with {string}")]
+async fn row_starts_with(world: &mut SpecwriterWorld, row: usize, prefix: String) {
+    let line = get_row(world, row);
+    assert!(
+        line.starts_with(&prefix),
+        "Row {} should start with '{}', but got: '{}'",
+        row, prefix, line
+    );
+}
+
+fn is_box_drawing(c: char) -> bool {
+    ('\u{2500}'..='\u{257F}').contains(&c)
+}
+
+#[then(expr = "row {int} should contain no box-drawing characters")]
+async fn row_has_no_box_drawing(world: &mut SpecwriterWorld, row: usize) {
+    let line = get_row(world, row);
+    let offending: Vec<char> = line.chars().filter(|c| is_box_drawing(*c)).collect();
+    assert!(
+        offending.is_empty(),
+        "Row {} should contain no box-drawing characters, but found {:?}: '{}'",
+        row, offending, line
+    );
+}
+
+#[then(expr = "row {int} should start with a corner box-drawing character followed by horizontal lines")]
+async fn row_starts_with_corner_then_horizontal(world: &mut SpecwriterWorld, row: usize) {
+    let line = get_row(world, row);
+    let mut chars = line.chars();
+    let first = chars.next().unwrap_or(' ');
+    // Corner characters: ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ╭ ╮ ╯ ╰ etc.
+    let corners = [
+        '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '╭', '╮', '╯', '╰',
+    ];
+    assert!(
+        corners.contains(&first),
+        "Row {} should start with a corner character, but starts with '{}' (U+{:04X}): '{}'",
+        row, first, first as u32, line
+    );
+    let second = chars.next().unwrap_or(' ');
+    // Horizontal line characters: ─ ━ ═
+    let horizontals = ['─', '━', '═'];
+    assert!(
+        horizontals.contains(&second),
+        "Row {} second character should be a horizontal line, but got '{}' (U+{:04X}): '{}'",
+        row, second, second as u32, line
+    );
+}
+
+#[then(expr = "row {int} should start with a vertical border then {string}")]
+async fn row_starts_with_border_then_text(world: &mut SpecwriterWorld, row: usize, text: String) {
+    let line = get_row(world, row);
+    let first = line.chars().next().unwrap_or(' ');
+    let verticals = ['│', '┃', '║'];
+    assert!(
+        verticals.contains(&first),
+        "Row {} should start with a vertical border, but starts with '{}' (U+{:04X}): '{}'",
+        row, first, first as u32, line
+    );
+    // After the border and a space, the text should follow
+    let after_border = line[first.len_utf8()..].trim_start();
+    assert!(
+        after_border.starts_with(&text),
+        "Row {} after border should start with '{}', but got: '{}'",
+        row, text, after_border
+    );
+}
+
+#[then("the active tab title should be bold")]
+async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
+    let tab_name = match world.runner().app.active_tab {
+        specwriter::ActiveTab::TextInput => "Text Input",
+        specwriter::ActiveTab::Questions => "Open Questions",
+    };
+    // Tab labels are on row index 2 (row 3, zero-indexed)
+    assert!(
+        world.runner().has_bold_text_on_row(2, tab_name),
+        "Active tab '{}' should be bold on row 3",
+        tab_name
+    );
+}
+
 #[tokio::main]
 async fn main() {
     SpecwriterWorld::run("features").await;

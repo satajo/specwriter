@@ -71,15 +71,15 @@ pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // status (plain text, no border)
-            Constraint::Length(1),  // empty spacing line
-            Constraint::Length(1),  // tab bar (no block — just labels)
-            Constraint::Min(10),   // tab content (bordered block)
+            Constraint::Length(1),  // status
+            Constraint::Length(1),  // spacing
+            Constraint::Length(1),  // tab labels (no border)
+            Constraint::Min(5),    // content (bordered)
             Constraint::Length(1),  // help line
         ])
         .split(f.area());
 
-    // Status line (plain text, no border)
+    // Status line
     let (icon, icon_style) = status_indicator(app);
     let status_line = Line::from(vec![
         Span::styled(format!("{} ", icon), icon_style),
@@ -87,15 +87,15 @@ pub fn draw(f: &mut Frame, app: &App) {
     ]);
     f.render_widget(Paragraph::new(status_line), chunks[0]);
 
-    // Tab bar — Tabs widget in a single line, no block
+    // Tab labels — no block, no borders
     let q_count = app.questions.len();
     let selected = match app.active_tab {
         ActiveTab::TextInput => 0,
         ActiveTab::Questions => 1,
     };
     let highlight = match app.active_tab {
-        ActiveTab::TextInput => Style::default().fg(Color::Black).bg(Color::Green),
-        ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue),
+        ActiveTab::TextInput => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
+        ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
     };
     let titles = vec![
         Line::from(" Text Input ").green(),
@@ -104,10 +104,11 @@ pub fn draw(f: &mut Frame, app: &App) {
     let tabs = Tabs::new(titles)
         .select(selected)
         .highlight_style(highlight)
-        .divider(" ");
+        .padding(" ", "")
+        .divider("");
     f.render_widget(tabs, chunks[2]);
 
-    // Tab content (own bordered block)
+    // Content area with bordered block
     match app.active_tab {
         ActiveTab::TextInput => draw_text_input(f, app, chunks[3]),
         ActiveTab::Questions => draw_questions(f, app, chunks[3]),
@@ -172,11 +173,16 @@ fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
 }
 
 fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
+    let outer_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::reset());
+    let outer_inner = outer_block.inner(area);
+    f.render_widget(outer_block, area);
+
     if app.questions.is_empty() {
         let content = Paragraph::new("  No open questions")
-            .style(Style::default().fg(Color::Gray))
-            .block(Block::default().borders(Borders::ALL).border_style(Style::reset()));
-        f.render_widget(content, area);
+            .style(Style::default().fg(Color::Gray));
+        f.render_widget(content, outer_inner);
         return;
     }
 
@@ -184,10 +190,10 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
     let sub = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(5), Constraint::Min(4)])
-        .split(area);
+        .split(outer_inner);
 
     // Question list with center-focused scrolling
-    let list_inner_height = sub[0].height.saturating_sub(2) as usize;
+    let list_inner_height = sub[0].height as usize;
     let list_scroll = center_scroll(app.question_focus, list_inner_height, app.questions.len());
 
     let items: Vec<ListItem> = app
@@ -206,7 +212,7 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
             ListItem::new(line).style(style)
         })
         .collect();
-    let list = List::new(items).block(Block::default().borders(Borders::ALL).border_style(Style::reset()));
+    let list = List::new(items);
     f.render_widget(list, sub[0]);
 
     // Detail panel
@@ -222,13 +228,18 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
             focused.id, focused.priority, focused.text, focused.body, focused.file
         )
     };
-    let detail_inner_height = sub[1].height.saturating_sub(2) as usize;
-    let detail_inner_width = sub[1].width.saturating_sub(2);
+    let detail_block = Block::default()
+        .borders(Borders::TOP)
+        .border_style(Style::reset())
+        .title(" Details ");
+    let detail_inner = detail_block.inner(sub[1]);
+    let detail_inner_height = detail_inner.height as usize;
+    let detail_inner_width = detail_inner.width;
     let detail_total = wrapped_line_count(&detail_text, detail_inner_width);
     let detail_scroll = center_scroll(0, detail_inner_height, detail_total) as u16;
 
     let detail = Paragraph::new(detail_text)
-        .block(Block::default().borders(Borders::ALL).border_style(Style::reset()).title(" Details "))
+        .block(detail_block)
         .wrap(Wrap { trim: false })
         .scroll((detail_scroll, 0));
     f.render_widget(detail, sub[1]);
