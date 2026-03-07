@@ -48,8 +48,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     } else {
         app.questions
             .iter()
-            .map(|(num, q)| {
-                Line::from(format!("  Q{}. {}", num, q)).yellow()
+            .map(|(num, q, file)| {
+                Line::from(format!("  Q{}. {} ({})", num, q, file)).yellow()
             })
             .collect()
     };

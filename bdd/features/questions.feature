@@ -56,13 +56,14 @@ Feature: Question Generation
     And the screen should show "Q3."
     And the screen should show "Q4."
 
-  Scenario: Questions are embedded inline in spec files
+  Scenario: Questions are placed under a Questions heading in spec files
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the spec should contain "?Q1:"
-    And the spec should contain "?Q2:"
-    And the spec should contain "?Q3:"
+    Then the spec should contain "## Questions"
+    And the spec should contain "Q1:"
+    And the spec should contain "Q2:"
+    And the spec should contain "Q3:"
 
   Scenario: No questions when integrator output has none
     Given the specwriter is running with a no-questions mock

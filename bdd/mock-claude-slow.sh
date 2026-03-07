@@ -14,7 +14,7 @@ mkdir -p "$SPEC_DIR"
 
 # Create or update base content
 if [ -f "$README" ] && [ -s "$README" ]; then
-    EXISTING=$(grep -v "^?Q" "$README" || true)
+    EXISTING=$(sed '/^## Questions$/,$d' "$README" | sed -e :a -e '/^\n*$/{$d;N;ba}')
     printf '%s\n\n---\n\nUpdated with new requirements.\n' "$EXISTING" > "$README"
 else
     printf '# Spec\n\nRequirements integrated from user input.\n' > "$README"
@@ -24,7 +24,6 @@ fi
 echo "$PROMPT" | grep -qi "search" && echo "search" >> "$README"
 echo "$PROMPT" | grep -qi "filter" && echo "filtering" >> "$README"
 
-echo "" >> "$README"
-echo "?Q1: What are the requirements?" >> "$README"
+printf '\n## Questions\n\nQ1: What are the requirements?\n' >> "$README"
 
 echo "I have integrated the requirements."

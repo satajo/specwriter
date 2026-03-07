@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Mock claude CLI for BDD tests.
-# Writes to spec/ directory and embeds inline questions.
+# Writes to spec/ directory and places questions under ## Questions heading.
 
 PROMPT="${@: -1}"
 WORKDIR="$(pwd)"
@@ -9,9 +9,9 @@ README="$SPEC_DIR/README.md"
 
 mkdir -p "$SPEC_DIR"
 
-# Create or update base content (strip existing question lines)
+# Build content section (strip existing Questions heading and below)
 if [ -f "$README" ] && [ -s "$README" ]; then
-    EXISTING=$(grep -v "^?Q" "$README" || true)
+    EXISTING=$(sed '/^## Questions$/,$d' "$README" | sed -e :a -e '/^\n*$/{$d;N;ba}')
     printf '%s\n\n---\n\nUpdated with new requirements from the latest integration.\n' "$EXISTING" > "$README"
 else
     printf '# Spec\n\nRequirements integrated from user input.\n' > "$README"
@@ -24,23 +24,17 @@ echo "$PROMPT" | grep -qi "authentication" && echo "authentication" >> "$README"
 echo "$PROMPT" | grep -qi "search" && echo "search" >> "$README"
 echo "$PROMPT" | grep -qi "filter" && echo "filtering" >> "$README"
 
-# Embed inline questions based on prompt content
-echo "" >> "$README"
+# Place questions under ## Questions heading
+printf '\n## Questions\n\n' >> "$README"
 if echo "$PROMPT" | grep -qi "OAuth"; then
     # Answered Q1 (auth question), keep Q2, Q3, add Q4
-    echo "?Q2: Should there be role-based access?" >> "$README"
-    echo "?Q3: What is the target platform?" >> "$README"
-    echo "?Q4: What OAuth providers should be supported?" >> "$README"
+    printf 'Q2: Should there be role-based access?\n\nQ3: What is the target platform?\n\nQ4: What OAuth providers should be supported?\n' >> "$README"
 elif echo "$PROMPT" | grep -qi "search"; then
     # Keep Q1, Q2, remove Q3, add Q4
-    echo "?Q1: What are the authentication requirements?" >> "$README"
-    echo "?Q2: Should there be role-based access?" >> "$README"
-    echo "?Q4: What search fields are needed?" >> "$README"
+    printf 'Q1: What are the authentication requirements?\n\nQ2: Should there be role-based access?\n\nQ4: What search fields are needed?\n' >> "$README"
 else
     # Default: Q1, Q2, Q3
-    echo "?Q1: What are the authentication requirements?" >> "$README"
-    echo "?Q2: Should there be role-based access?" >> "$README"
-    echo "?Q3: What is the target platform?" >> "$README"
+    printf 'Q1: What are the authentication requirements?\n\nQ2: Should there be role-based access?\n\nQ3: What is the target platform?\n' >> "$README"
 fi
 
 echo "I have integrated the requirements."

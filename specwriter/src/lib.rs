@@ -18,7 +18,7 @@ pub enum AppState {
 pub struct App {
     pub input: String,
     pub cursor_pos: usize,
-    pub questions: Vec<(usize, String)>,
+    pub questions: Vec<(usize, String, String)>,
     pub status: String,
     pub state: AppState,
     pub tick: u64,
@@ -45,17 +45,19 @@ impl App {
     }
 
     pub fn with_default_integrator() -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
-        let (ui_tx, ui_rx) = mpsc::unbounded_channel();
-        let integrator = IntegratorHandle::new(ui_tx, IntegratorConfig::default());
-        (Self::new(integrator), ui_rx)
+        let config = IntegratorConfig::default();
+        Self::with_config(config)
     }
 
     pub fn with_config(
         config: IntegratorConfig,
     ) -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
+        let initial_questions = integrator::scan_questions(&config.working_dir.join("spec"));
         let integrator = IntegratorHandle::new(ui_tx, config);
-        (Self::new(integrator), ui_rx)
+        let mut app = Self::new(integrator);
+        app.questions = initial_questions;
+        (app, ui_rx)
     }
 
     pub fn submit(&mut self) {

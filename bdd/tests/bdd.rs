@@ -135,33 +135,6 @@ async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
     world.start_with_config(config);
 }
 
-#[given("the specwriter is running with a seeding mock")]
-async fn running_with_seeding_mock(world: &mut SpecwriterWorld) {
-    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let config = IntegratorConfig {
-        command: bdd_dir
-            .join("mock-claude-seed.sh")
-            .to_string_lossy()
-            .into(),
-        args: Vec::new(),
-        working_dir: world.workdir_path(),
-    };
-    world.start_with_config(config);
-}
-
-#[given("the specwriter is running with a slow seeding mock")]
-async fn running_with_slow_seeding_mock(world: &mut SpecwriterWorld) {
-    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let config = IntegratorConfig {
-        command: bdd_dir
-            .join("mock-claude-seed-slow.sh")
-            .to_string_lossy()
-            .into(),
-        args: Vec::new(),
-        working_dir: world.workdir_path(),
-    };
-    world.start_with_config(config);
-}
 
 #[given("the specwriter is running with a nine-questions mock")]
 async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
@@ -211,11 +184,6 @@ async fn wait_for_all_integrations(world: &mut SpecwriterWorld) {
 #[when(expr = "I wait for status to contain {string}")]
 async fn wait_for_status(world: &mut SpecwriterWorld, needle: String) {
     world.runner().wait_for_status_to_contain(&needle).await;
-}
-
-#[given("I wait for seeding to complete")]
-async fn wait_for_seeding(world: &mut SpecwriterWorld) {
-    world.runner().wait_for_integration().await;
 }
 
 // --- THEN steps ---

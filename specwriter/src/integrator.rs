@@ -1,10 +1,10 @@
 use std::path::{Path, PathBuf};
 use tokio::process::Command;
 use tokio::sync::mpsc;
-
+use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub enum IntegratorMessage {
-    QuestionsUpdated(Vec<(usize, String)>),
+    QuestionsUpdated(Vec<(usize, String, String)>),
     StatusUpdate(String),
     IntegrationComplete,
 }
@@ -24,7 +24,6 @@ impl Default for IntegratorConfig {
                 "--print".into(),
                 "--allowedTools".into(),
                 "Edit,Read,Write".into(),
-                "-p".into(),
             ],
             working_dir: std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         }
@@ -57,39 +56,11 @@ async fn integrator_loop(
     config: IntegratorConfig,
 ) {
     let spec_dir = config.working_dir.join("spec");
-
-    // Seed questions from existing spec
-    let readme_path = spec_dir.join("README.md");
-    if readme_path.exists() {
-        let content = std::fs::read_to_string(&readme_path).unwrap_or_default();
-        if !content.trim().is_empty() {
-            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-                "Loading existing specs...".into(),
-            ));
-
-            let prompt = r#"You are a requirements integrator. Review the existing spec knowledge base under the spec/ directory and generate initial clarifying questions based on its current content.
-
-Read spec/README.md to orient yourself, then read whatever other spec files you deem relevant.
-
-INLINE QUESTIONS:
-Embed your questions directly in the relevant spec files using this format (one per line):
-?Q{id}: {question text}
-
-Place each question near the content it relates to. Assign sequential IDs starting from 1. Generate up to 9 questions, focusing on the most important things to clarify.
-
-Do NOT output questions to stdout — embed them in the spec files only."#;
-
-            if let Err(e) = run_command(&config, prompt).await {
-                let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error: {e}")));
-            }
-
-            let questions = scan_inline_questions(&spec_dir);
-            let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
-            let _ = ui_tx.send(IntegratorMessage::IntegrationComplete);
-        }
-    }
+    // Session ID for CLI session reuse across integrations
+    let session_id = Uuid::new_v4().to_string();
 
     // Main integration loop
+    let mut first_call = true;
     loop {
         let msg = match rx.recv().await {
             Some(m) => m,
@@ -131,6 +102,7 @@ Do NOT output questions to stdout — embed them in the spec files only."#;
                 }
             }
 
+            let readme_path = spec_dir.join("README.md");
             let spec_is_empty = !readme_path.exists()
                 || std::fs::read_to_string(&readme_path)
                     .map(|s| s.trim().is_empty())
@@ -144,7 +116,7 @@ Do NOT output questions to stdout — embed them in the spec files only."#;
 Read spec/README.md to orient yourself, then read whatever other spec files you deem relevant for integrating the following user message.
 
 RULES:
-- Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
+- Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
 - You are integrating a thought-stream of requirements into a cohesive knowledge base, not writing a technical spec.
 - Preserve the user's intent and language where possible.
 - Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain coherence and quality, while always preserving intent.
@@ -169,11 +141,12 @@ SPEC ORGANIZATION:
 CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
 
-INLINE QUESTIONS:
-Embed clarifying questions directly in spec files using this format (one per line):
-?Q{{id}}: {{question text}}
+QUESTIONS:
+Place clarifying questions at the END of each spec file under a `## Questions` heading, formatted as:
 
-Place each question near the content it relates to. Questions are global across the knowledge base.
+Q<number>: <question text>
+
+Each question gets its own paragraph (separated by blank lines). Questions are global across the knowledge base.
 - Keep questions that are still relevant and unanswered (preserve their IDs)
 - Remove questions that have been answered or are no longer relevant
 - Add new questions with IDs higher than any existing question ID
@@ -181,7 +154,7 @@ Place each question near the content it relates to. Questions are global across 
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
-Do NOT output questions to stdout — embed them in the spec files only.
+Do NOT output questions to stdout — place them in the spec files only.
 
 User message:
 
@@ -192,7 +165,7 @@ User message:
                     r#"You are a requirements integrator. Create a new spec knowledge base under the spec/ directory based on the following user message.
 
 RULES:
-- Match the user's level of abstraction. Do NOT translate their inputs into technical implementation details unless they are already at that level.
+- Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
 - You are integrating a thought-stream of requirements into a cohesive knowledge base, not writing a technical spec.
 - Preserve the user's intent and language where possible.
 - Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain coherence and quality, while always preserving intent.
@@ -207,13 +180,14 @@ SPEC STRUCTURE:
 CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
 
-INLINE QUESTIONS:
-Embed clarifying questions directly in spec files using this format (one per line):
-?Q{{id}}: {{question text}}
+QUESTIONS:
+Place clarifying questions at the END of the spec file under a `## Questions` heading, formatted as:
 
-Place each question near the content it relates to. Assign sequential IDs starting from 1. Generate up to 9 questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
+Q<number>: <question text>
 
-Do NOT output questions to stdout — embed them in the spec files only.
+Each question gets its own paragraph (separated by blank lines). Assign sequential IDs starting from 1. Generate up to 9 questions focusing on the most important things to clarify. Each question should be self-contained — understandable without cross-referencing.
+
+Do NOT output questions to stdout — place them in the spec files only.
 
 User message:
 
@@ -221,8 +195,15 @@ User message:
                 )
             };
 
+            // Build session args for CLI session reuse
+            let extra_args: Vec<String> = if first_call {
+                vec!["--session-id".to_string(), session_id.clone()]
+            } else {
+                vec!["--resume".to_string(), session_id.clone()]
+            };
+
             // Run command while monitoring for new submissions
-            let command_future = run_command(&config, &prompt);
+            let command_future = run_command(&config, &extra_args, &prompt);
             tokio::pin!(command_future);
 
             let result = loop {
@@ -241,7 +222,8 @@ User message:
 
             match result {
                 Ok(_) => {
-                    let questions = scan_inline_questions(&spec_dir);
+                    first_call = false;
+                    let questions = scan_questions(&spec_dir);
                     let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
                 }
                 Err(e) => {
@@ -263,9 +245,11 @@ User message:
 }
 
 
-async fn run_command(config: &IntegratorConfig, prompt: &str) -> Result<String, String> {
+async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &str) -> Result<String, String> {
     let output = Command::new(&config.command)
         .args(&config.args)
+        .args(extra_args)
+        .arg("-p")
         .arg(prompt)
         .current_dir(&config.working_dir)
         .env("CLAUDE_CODE_SIMPLE", "1")
@@ -282,20 +266,20 @@ async fn run_command(config: &IntegratorConfig, prompt: &str) -> Result<String, 
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-/// Scan all markdown files under spec/ for inline questions in the format:
-/// ?Q{id}: {question text}
-pub fn scan_inline_questions(spec_dir: &Path) -> Vec<(usize, String)> {
+/// Scan all markdown files under spec/ for questions under ## Questions headings.
+/// Returns (id, text, source_file) tuples.
+pub fn scan_questions(spec_dir: &Path) -> Vec<(usize, String, String)> {
     let mut questions = Vec::new();
     if !spec_dir.exists() {
         return questions;
     }
-    scan_dir_for_questions(spec_dir, &mut questions);
-    questions.sort_by_key(|(id, _)| *id);
+    scan_dir_for_questions(spec_dir, spec_dir, &mut questions);
+    questions.sort_by_key(|(id, _, _)| *id);
     questions.truncate(9);
     questions
 }
 
-fn scan_dir_for_questions(dir: &Path, questions: &mut Vec<(usize, String)>) {
+fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<(usize, String, String)>) {
     let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
         Err(_) => return,
@@ -307,12 +291,28 @@ fn scan_dir_for_questions(dir: &Path, questions: &mut Vec<(usize, String)>) {
         };
         let path = entry.path();
         if path.is_dir() {
-            scan_dir_for_questions(&path, questions);
+            scan_dir_for_questions(base_dir, &path, questions);
         } else if path.extension().map(|e| e == "md").unwrap_or(false) {
             if let Ok(content) = std::fs::read_to_string(&path) {
+                let rel_path = path.strip_prefix(base_dir)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .to_string();
+                let mut in_questions_section = false;
                 for line in content.lines() {
-                    if let Some(q) = parse_inline_question(line) {
-                        questions.push(q);
+                    let trimmed = line.trim();
+                    if trimmed == "## Questions" {
+                        in_questions_section = true;
+                        continue;
+                    }
+                    if in_questions_section && trimmed.starts_with("## ") {
+                        // Hit another heading, leave questions section
+                        break;
+                    }
+                    if in_questions_section {
+                        if let Some((id, text)) = parse_question_line(trimmed) {
+                            questions.push((id, text, rel_path.clone()));
+                        }
                     }
                 }
             }
@@ -320,9 +320,8 @@ fn scan_dir_for_questions(dir: &Path, questions: &mut Vec<(usize, String)>) {
     }
 }
 
-fn parse_inline_question(line: &str) -> Option<(usize, String)> {
-    let trimmed = line.trim();
-    let rest = trimmed.strip_prefix("?Q")?;
+fn parse_question_line(line: &str) -> Option<(usize, String)> {
+    let rest = line.strip_prefix('Q')?;
     let colon_pos = rest.find(':')?;
     let id: usize = rest[..colon_pos].parse().ok()?;
     let text = rest[colon_pos + 1..].trim().to_string();

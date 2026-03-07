@@ -9,21 +9,13 @@ README="$SPEC_DIR/README.md"
 mkdir -p "$SPEC_DIR"
 
 if [ -f "$README" ] && [ -s "$README" ]; then
-    EXISTING=$(grep -v "^?Q" "$README" || true)
+    EXISTING=$(sed '/^## Questions$/,$d' "$README" | sed -e :a -e '/^\n*$/{$d;N;ba}')
     printf '%s\n\n---\n\nUpdated.\n' "$EXISTING" > "$README"
 else
     printf '# Spec\n\nLarge application requirements.\n' > "$README"
 fi
 
-echo "" >> "$README"
-echo "?Q1: Q one?" >> "$README"
-echo "?Q2: Q two?" >> "$README"
-echo "?Q3: Q three?" >> "$README"
-echo "?Q4: Q four?" >> "$README"
-echo "?Q5: Q five?" >> "$README"
-echo "?Q6: Q six?" >> "$README"
-echo "?Q7: Q seven?" >> "$README"
-echo "?Q8: Q eight?" >> "$README"
-echo "?Q9: Q nine?" >> "$README"
+printf '\n## Questions\n\n' >> "$README"
+printf 'Q1: Q one?\n\nQ2: Q two?\n\nQ3: Q three?\n\nQ4: Q four?\n\nQ5: Q five?\n\nQ6: Q six?\n\nQ7: Q seven?\n\nQ8: Q eight?\n\nQ9: Q nine?\n' >> "$README"
 
 echo "I have integrated the requirements."
