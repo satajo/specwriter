@@ -11,10 +11,10 @@ Cargo workspace with two members:
   - `src/main.rs` — crossterm event loop, thin wrapper over lib
   - `src/ui.rs` — ratatui rendering (status, questions, input, help)
   - `src/integrator.rs` — background tokio task, calls claude CLI, parses questions
-- `bdd/` — Cucumber BDD test suite
-  - `features/*.feature` — Gherkin specs (integration, questions, error_handling)
-  - `tests/bdd.rs` — step definitions using AppRunner
+- `tui-testdriver/` — Cucumber BDD test suite
+  - `tests/tui_testdriver.rs` — step definitions using AppRunner
   - `mock-claude*.sh` — mock scripts replacing claude CLI in tests
+- `features/` — Gherkin specs (integration, questions, error_handling, etc.)
 
 ## Key patterns
 
@@ -28,14 +28,14 @@ Cargo workspace with two members:
 
 ```
 nix develop --command cargo build --workspace
-nix develop --command cargo test --package specwriter-bdd
+nix develop --command cargo test --package specwriter-tui-testdriver
 ```
 
 ## Development workflow
 
 **All features and spec changes MUST follow BDD-first TDD:**
 
-1. **Spec first** — Write or update `.feature` files in `bdd/features/` before touching any Rust code. The Gherkin scenarios define what the feature does in implementation-agnostic terms.
+1. **Spec first** — Write or update `.feature` files in `features/` before touching any Rust code. The Gherkin scenarios define what the feature does in implementation-agnostic terms.
 2. **Red** — Run the tests, confirm the new scenarios fail.
 3. **Green** — Implement the minimum Rust code to make them pass.
 4. **Refactor** — Clean up if needed, ensure all tests still pass.
@@ -45,7 +45,7 @@ This applies to any task that adds, changes, or removes user-facing behavior. Th
 
 ## Writing Gherkin
 
-Read `bdd/GHERKIN_GUIDE.md` before writing or modifying feature files. Key points: behavior over mechanics, declarative steps, one behavior per scenario, domain language, 3-7 steps per scenario.
+Read `GHERKIN_GUIDE.md` before writing or modifying feature files. Key points: behavior over mechanics, declarative steps, one behavior per scenario, domain language, 3-7 steps per scenario.
 
 ## Conventions
 

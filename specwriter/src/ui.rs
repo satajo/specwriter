@@ -166,8 +166,13 @@ fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
     let inner_width = inner.width;
 
     if app.input.is_empty() {
+        let placeholder_text = if app.state == AppState::Integrating {
+            "Type your requirements here. Ctrl+S to add to queue."
+        } else {
+            "Type your requirements here. Ctrl+S to submit."
+        };
         let placeholder =
-            Paragraph::new("Type your requirements here. Ctrl+S to submit.")
+            Paragraph::new(placeholder_text)
                 .style(Style::default().fg(Color::Gray));
         f.render_widget(placeholder, inner);
     } else {

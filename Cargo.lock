@@ -1200,7 +1200,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "specwriter-bdd"
+name = "specwriter-tui-testdriver"
 version = "0.1.0"
 dependencies = [
  "cucumber",

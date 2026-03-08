@@ -1,10 +1,10 @@
 [package]
-name = "specwriter-bdd"
+name = "specwriter-tui-testdriver"
 version = "0.1.0"
 edition = "2021"
 
 [[test]]
-name = "bdd"
+name = "tui_testdriver"
 harness = false
 
 [dev-dependencies]

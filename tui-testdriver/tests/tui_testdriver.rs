@@ -666,5 +666,5 @@ async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
 
 #[tokio::main]
 async fn main() {
-    SpecwriterWorld::run("features").await;
+    SpecwriterWorld::run("../features").await;
 }
