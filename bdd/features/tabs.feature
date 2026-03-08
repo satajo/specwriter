@@ -8,8 +8,8 @@ Feature: Tabbed UI
     And the specwriter is running with a mock command
 
   Scenario: Tab bar is visible on startup
-    Then the screen should show "Text Input"
-    And the screen should show "Open Questions"
+    Then the screen should show "Writer"
+    And the screen should show "Open questions"
 
   Scenario: Text input tab is active by default
     Then the screen should show "Ctrl+S"
@@ -31,7 +31,7 @@ Feature: Tabbed UI
   Scenario: Questions tab shows question count in tab name
     Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p7): First?\n\nBody.\n\n### Q2 (p5): Second?\n\nBody."
     And the specwriter is running with a mock command
-    Then the screen should show "Open Questions (2)"
+    Then the screen should show "Open questions (2)"
 
   Scenario: Focused question details are shown in the detail panel
     Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"

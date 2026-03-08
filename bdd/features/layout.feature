@@ -14,7 +14,7 @@ Feature: Screen Layout
     Then row 2 should be blank
 
   Scenario: Tab labels on row 3 have no borders
-    Then row 3 should start with " Text Input  Open Questions (0)"
+    Then row 3 should start with " Writer  Open questions (0)"
     And row 3 should contain no box-drawing characters
     And the active tab title should be bold
 

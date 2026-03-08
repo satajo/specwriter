@@ -292,7 +292,7 @@ async fn switch_to_questions_tab(world: &mut SpecwriterWorld) {
 async fn switch_to_text_input_tab(world: &mut SpecwriterWorld) {
     use specwriter::ActiveTab;
     for _ in 0..3 {
-        if world.runner().app.active_tab == ActiveTab::TextInput {
+        if world.runner().app.active_tab == ActiveTab::Writer {
             return;
         }
         world
@@ -427,8 +427,7 @@ async fn question_appears_before(world: &mut SpecwriterWorld, first: String, sec
 #[then(expr = "the input area should show {string}")]
 async fn input_area_should_show(world: &mut SpecwriterWorld, expected: String) {
     let screen = world.runner().render();
-    // The input area is between the "Input" title and the help line
-    let input_start = screen.find("Input").expect("Input area not found on screen");
+    let input_start = screen.find("Writer").expect("Writer tab not found on screen");
     let input_section = &screen[input_start..];
     assert!(
         input_section.contains(&expected),
@@ -441,7 +440,7 @@ async fn input_area_should_show(world: &mut SpecwriterWorld, expected: String) {
 #[then(expr = "the input area should not show {string}")]
 async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: String) {
     let screen = world.runner().render();
-    let input_start = screen.find("Input").expect("Input area not found on screen");
+    let input_start = screen.find("Writer").expect("Writer tab not found on screen");
     let help_start = screen[input_start..]
         .find("Ctrl+C")
         .map(|i| input_start + i)
@@ -637,8 +636,8 @@ async fn row_starts_with_border_then_text(world: &mut SpecwriterWorld, row: usiz
 #[then("the active tab title should be bold")]
 async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
     let tab_name = match world.runner().app.active_tab {
-        specwriter::ActiveTab::TextInput => "Text Input",
-        specwriter::ActiveTab::Questions => "Open Questions",
+        specwriter::ActiveTab::Writer => "Writer",
+        specwriter::ActiveTab::Questions => "Open questions",
         specwriter::ActiveTab::Spec => "SPEC.md",
     };
     // Tab labels are on row index 2 (row 3, zero-indexed)

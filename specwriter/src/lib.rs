@@ -17,7 +17,7 @@ pub enum AppState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ActiveTab {
-    TextInput,
+    Writer,
     Questions,
     Spec,
 }
@@ -60,7 +60,7 @@ impl App {
             tick: 0,
             integrator,
             should_quit: false,
-            active_tab: ActiveTab::TextInput,
+            active_tab: ActiveTab::Writer,
             question_focus: 0,
             answer_dialog: None,
             input_scroll: 0,
@@ -217,15 +217,15 @@ impl App {
         // Tab switching (global)
         if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
             self.active_tab = match self.active_tab {
-                ActiveTab::TextInput => ActiveTab::Questions,
+                ActiveTab::Writer => ActiveTab::Questions,
                 ActiveTab::Questions => ActiveTab::Spec,
-                ActiveTab::Spec => ActiveTab::TextInput,
+                ActiveTab::Spec => ActiveTab::Writer,
             };
             return;
         }
 
         match self.active_tab {
-            ActiveTab::TextInput => self.handle_text_input_key(key),
+            ActiveTab::Writer => self.handle_text_input_key(key),
             ActiveTab::Questions => self.handle_questions_key(key),
             ActiveTab::Spec => self.handle_spec_key(key),
         }

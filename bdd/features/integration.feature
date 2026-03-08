@@ -9,8 +9,8 @@ Feature: Spec Integration
 
   Scenario: Application starts with a ready screen
     Then the screen should show "Idle."
-    And the screen should show "Text Input"
-    And the screen should show "Open Questions"
+    And the screen should show "Writer"
+    And the screen should show "Open questions"
     And the screen should show "Ctrl+S"
 
   Scenario: SPEC.md does not exist at launch

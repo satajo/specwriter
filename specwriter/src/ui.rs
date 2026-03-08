@@ -85,12 +85,12 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Tab labels — no block, no borders
     let q_count = app.questions.len();
     let selected = match app.active_tab {
-        ActiveTab::TextInput => 0,
+        ActiveTab::Writer => 0,
         ActiveTab::Questions => 1,
         ActiveTab::Spec => 2,
     };
     let highlight = match app.active_tab {
-        ActiveTab::TextInput => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
+        ActiveTab::Writer => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
         ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
         ActiveTab::Spec => Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD),
     };
@@ -99,8 +99,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         None => " No spec ".into(),
     };
     let titles = vec![
-        Line::from(" Text Input ").green(),
-        Line::from(format!(" Open Questions ({}) ", q_count)).blue(),
+        Line::from(" Writer ").green(),
+        Line::from(format!(" Open questions ({}) ", q_count)).blue(),
         Line::from(spec_label).red(),
     ];
     let tabs = Tabs::new(titles)
@@ -112,7 +112,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 
     // Content area with bordered block
     match app.active_tab {
-        ActiveTab::TextInput => draw_text_input(f, app, chunks[3]),
+        ActiveTab::Writer => draw_text_input(f, app, chunks[3]),
         ActiveTab::Questions => draw_questions(f, app, chunks[3]),
         ActiveTab::Spec => draw_spec(f, app, chunks[3]),
     }
@@ -124,7 +124,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         " Ctrl+S: submit | Esc: cancel | Enter: newline"
     } else {
         match app.active_tab {
-            ActiveTab::TextInput => {
+            ActiveTab::Writer => {
                 " Ctrl+C: quit | Tab: switch tab | Ctrl+S: submit | Enter: newline"
             }
             ActiveTab::Questions => {
