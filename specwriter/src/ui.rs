@@ -1,6 +1,6 @@
 use ratatui::{prelude::*, widgets::*};
 
-use crate::{ActiveTab, AnswerMode, App, AppState};
+use crate::{ActiveTab, AnswerMode, App, AppState, settings::Settings};
 
 const DOT_TICKS_PER_FRAME: u64 = 1;
 
@@ -91,11 +91,13 @@ pub fn draw(f: &mut Frame, app: &App) {
         ActiveTab::Writer => 0,
         ActiveTab::Questions => 1,
         ActiveTab::Spec => 2,
+        ActiveTab::Settings => 3,
     };
     let highlight = match app.active_tab {
         ActiveTab::Writer => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
         ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
         ActiveTab::Spec => Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD),
+        ActiveTab::Settings => Style::default().fg(Color::Black).bg(Color::DarkGray).add_modifier(Modifier::BOLD),
     };
     let spec_line_count = app.spec_content.as_ref().map(|c| c.lines().count()).unwrap_or(0);
     let spec_label = format!(" {} ({}) ", app.integrator.spec_filename(), spec_line_count);
@@ -103,6 +105,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         Line::from(" Writer ").green(),
         Line::from(format!(" Open questions ({}) ", q_count)).blue(),
         Line::from(spec_label).red(),
+        Line::from(" Settings ").gray(),
     ];
     let tabs = Tabs::new(titles)
         .select(selected)
@@ -116,6 +119,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         ActiveTab::Writer => draw_text_input(f, app, chunks[2]),
         ActiveTab::Questions => draw_questions(f, app, chunks[2]),
         ActiveTab::Spec => draw_spec(f, app, chunks[2]),
+        ActiveTab::Settings => draw_settings(f, app, chunks[2]),
     }
 
     // Help line
@@ -144,6 +148,13 @@ pub fn draw(f: &mut Frame, app: &App) {
             }
             ActiveTab::Spec => {
                 " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: scroll"
+            }
+            ActiveTab::Settings => {
+                if app.settings_editing.is_some() {
+                    " Esc: confirm | type to edit"
+                } else {
+                    " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: navigate | Enter: edit/toggle | Esc: confirm"
+                }
             }
         }
     };
@@ -298,6 +309,59 @@ fn draw_spec(f: &mut Frame, app: &App, area: Rect) {
             f.render_widget(paragraph, area);
         }
     }
+}
+
+fn draw_settings(f: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::reset())
+        .padding(Padding::new(1, 1, 0, 0));
+    let inner = block.inner(area);
+    f.render_widget(block, area);
+
+    let label_width = 18;
+
+    let mut items: Vec<ListItem> = Vec::new();
+    for i in 0..Settings::COUNT {
+        let label = Settings::label(i);
+        let is_focused = i == app.settings_focus;
+        let is_editing = is_focused && app.settings_editing.is_some();
+
+        let value_str = if is_editing {
+            let edit = app.settings_editing.as_ref().unwrap();
+            if edit.buffer.is_empty() {
+                " ".to_string()
+            } else {
+                edit.buffer.clone()
+            }
+        } else {
+            app.settings.display_value(i)
+        };
+
+        let padded_label = format!("{:width$}", label, width = label_width);
+
+        let style = if is_focused {
+            Style::default().fg(Color::Black).bg(Color::Yellow)
+        } else {
+            Style::default()
+        };
+
+        let value_style = if !is_focused && app.settings.display_value(i) == "(not set)" {
+            Style::default().fg(Color::Gray)
+        } else if is_focused {
+            Style::default().fg(Color::Black).bg(Color::Yellow)
+        } else {
+            Style::default()
+        };
+
+        let line = Line::from(vec![
+            Span::styled(padded_label, style),
+            Span::styled(value_str, value_style),
+        ]);
+        items.push(ListItem::new(line));
+    }
+    let list = List::new(items);
+    f.render_widget(list, inner);
 }
 
 fn draw_quit_dialog(f: &mut Frame, area: Rect) {

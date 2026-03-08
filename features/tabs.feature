@@ -26,19 +26,21 @@ Feature: Tabbed UI
     When I press Tab
     And I press Tab
     And I press Tab
+    And I press Tab
     Then the screen should show "Ctrl+S"
 
-  Scenario: Shift+Tab cycles backward to spec tab
+  Scenario: Shift+Tab cycles backward to settings tab
     When I press Shift+Tab
-    Then the screen should show "scroll"
+    Then the screen should show "edit/toggle"
 
-  Scenario: Shift+Tab cycles from spec to questions
+  Scenario: Shift+Tab cycles from settings to spec
     When I press Shift+Tab
     And I press Shift+Tab
-    Then the screen should show "navigate"
+    Then the screen should show "scroll"
 
   Scenario: Shift+Tab cycles all the way back to writer
     When I press Shift+Tab
+    And I press Shift+Tab
     And I press Shift+Tab
     And I press Shift+Tab
     Then the screen should show "Ctrl+S"

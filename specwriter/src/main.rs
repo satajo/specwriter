@@ -9,10 +9,14 @@ use std::io;
 
 use specwriter::App;
 use specwriter::integrator::IntegratorConfig;
+use specwriter::settings::Settings;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let config = IntegratorConfig::default();
+    let config_dir = Settings::default_config_dir();
+    let (settings, load_error) = Settings::load_from(&config_dir);
+    let working_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let config = IntegratorConfig::from_settings(&settings, working_dir);
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();
@@ -21,6 +25,12 @@ async fn main() -> anyhow::Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let (mut app, mut ui_rx) = App::with_config(config);
+    app.settings = settings;
+    app.config_dir = config_dir;
+    if let Some(err) = load_error {
+        app.status = err;
+        app.state = specwriter::AppState::Error;
+    }
     let mut events = EventStream::new();
     let mut tick_interval = tokio::time::interval(std::time::Duration::from_millis(150));
 

@@ -1,13 +1,16 @@
 pub mod integrator;
+pub mod settings;
 pub mod ui;
 
 pub use crossterm::event::{KeyCode, KeyModifiers};
 use crossterm::event::KeyEvent;
 use ratatui::{backend::TestBackend, style::Color, Terminal};
 use std::collections::HashSet;
+use std::path::PathBuf;
 use tokio::sync::mpsc;
 
 use integrator::{IntegratorConfig, IntegratorHandle, IntegratorMessage, Question};
+use settings::Settings;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppState {
@@ -21,6 +24,7 @@ pub enum ActiveTab {
     Writer,
     Questions,
     Spec,
+    Settings,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -35,6 +39,12 @@ pub struct AnswerDialog {
     pub input: String,
     pub cursor_pos: usize,
     pub mode: AnswerMode,
+}
+
+#[derive(Debug, Clone)]
+pub struct SettingsEditState {
+    pub buffer: String,
+    pub cursor_pos: usize,
 }
 
 #[derive(Debug)]
@@ -55,6 +65,10 @@ pub struct App {
     pub quit_dialog: bool,
     pub spec_content: Option<String>,
     pub spec_scroll: u16,
+    pub settings: Settings,
+    pub settings_focus: usize,
+    pub settings_editing: Option<SettingsEditState>,
+    pub config_dir: PathBuf,
     /// Question IDs that were answered locally but whose answers haven't been
     /// fully integrated yet. QuestionsUpdated messages must not reintroduce these.
     suppressed_answers: HashSet<usize>,
@@ -79,6 +93,10 @@ impl App {
             quit_dialog: false,
             spec_content: None,
             spec_scroll: 0,
+            settings: Settings::default(),
+            settings_focus: 0,
+            settings_editing: None,
+            config_dir: Settings::default_config_dir(),
             suppressed_answers: HashSet::new(),
         }
     }
@@ -234,28 +252,33 @@ impl App {
             return;
         }
 
-        // Tab switching (global)
-        if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
-            self.active_tab = match self.active_tab {
-                ActiveTab::Writer => ActiveTab::Questions,
-                ActiveTab::Questions => ActiveTab::Spec,
-                ActiveTab::Spec => ActiveTab::Writer,
-            };
-            return;
-        }
-        if key.code == KeyCode::BackTab {
-            self.active_tab = match self.active_tab {
-                ActiveTab::Writer => ActiveTab::Spec,
-                ActiveTab::Spec => ActiveTab::Questions,
-                ActiveTab::Questions => ActiveTab::Writer,
-            };
-            return;
+        // Tab switching (global) — but not while editing a settings field
+        if self.settings_editing.is_none() {
+            if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
+                self.active_tab = match self.active_tab {
+                    ActiveTab::Writer => ActiveTab::Questions,
+                    ActiveTab::Questions => ActiveTab::Spec,
+                    ActiveTab::Spec => ActiveTab::Settings,
+                    ActiveTab::Settings => ActiveTab::Writer,
+                };
+                return;
+            }
+            if key.code == KeyCode::BackTab {
+                self.active_tab = match self.active_tab {
+                    ActiveTab::Writer => ActiveTab::Settings,
+                    ActiveTab::Settings => ActiveTab::Spec,
+                    ActiveTab::Spec => ActiveTab::Questions,
+                    ActiveTab::Questions => ActiveTab::Writer,
+                };
+                return;
+            }
         }
 
         match self.active_tab {
             ActiveTab::Writer => self.handle_text_input_key(key),
             ActiveTab::Questions => self.handle_questions_key(key),
             ActiveTab::Spec => self.handle_spec_key(key),
+            ActiveTab::Settings => self.handle_settings_key(key),
         }
     }
 
@@ -367,6 +390,89 @@ impl App {
             KeyCode::Up => {
                 if self.spec_scroll > 0 {
                     self.spec_scroll -= 1;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_settings_key(&mut self, key: KeyEvent) {
+        if let Some(ref mut edit) = self.settings_editing {
+            // Currently editing a text field
+            match key {
+                KeyEvent { code: KeyCode::Esc, .. } => {
+                    let value = edit.buffer.clone();
+                    self.settings.set_value(self.settings_focus, value);
+                    self.settings_editing = None;
+                    let _ = self.settings.save_to(&self.config_dir);
+                }
+                KeyEvent { code: KeyCode::Backspace, .. } => {
+                    if edit.cursor_pos > 0 {
+                        let prev = edit.buffer[..edit.cursor_pos]
+                            .char_indices().last().map(|(i, _)| i).unwrap_or(0);
+                        edit.buffer.replace_range(prev..edit.cursor_pos, "");
+                        edit.cursor_pos = prev;
+                    }
+                }
+                KeyEvent { code: KeyCode::Delete, .. } => {
+                    if edit.cursor_pos < edit.buffer.len() {
+                        let next = edit.buffer[edit.cursor_pos..]
+                            .char_indices().nth(1).map(|(i, _)| edit.cursor_pos + i)
+                            .unwrap_or(edit.buffer.len());
+                        edit.buffer.replace_range(edit.cursor_pos..next, "");
+                    }
+                }
+                KeyEvent { code: KeyCode::Left, .. } => {
+                    if edit.cursor_pos > 0 {
+                        edit.cursor_pos = edit.buffer[..edit.cursor_pos]
+                            .char_indices().last().map(|(i, _)| i).unwrap_or(0);
+                    }
+                }
+                KeyEvent { code: KeyCode::Right, .. } => {
+                    if edit.cursor_pos < edit.buffer.len() {
+                        edit.cursor_pos = edit.buffer[edit.cursor_pos..]
+                            .char_indices().nth(1).map(|(i, _)| edit.cursor_pos + i)
+                            .unwrap_or(edit.buffer.len());
+                    }
+                }
+                KeyEvent { code: KeyCode::Home, .. } => {
+                    edit.cursor_pos = 0;
+                }
+                KeyEvent { code: KeyCode::End, .. } => {
+                    edit.cursor_pos = edit.buffer.len();
+                }
+                KeyEvent { code: KeyCode::Char(c), modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT, .. } => {
+                    edit.buffer.insert(edit.cursor_pos, c);
+                    edit.cursor_pos += c.len_utf8();
+                }
+                _ => {}
+            }
+            return;
+        }
+
+        // Not editing
+        match key.code {
+            KeyCode::Down => {
+                if self.settings_focus < Settings::COUNT - 1 {
+                    self.settings_focus += 1;
+                }
+            }
+            KeyCode::Up => {
+                if self.settings_focus > 0 {
+                    self.settings_focus -= 1;
+                }
+            }
+            KeyCode::Enter => {
+                if Settings::is_boolean(self.settings_focus) {
+                    self.settings.toggle(self.settings_focus);
+                    let _ = self.settings.save_to(&self.config_dir);
+                } else {
+                    let value = self.settings.edit_value(self.settings_focus);
+                    let cursor_pos = value.len();
+                    self.settings_editing = Some(SettingsEditState {
+                        buffer: value,
+                        cursor_pos,
+                    });
                 }
             }
             _ => {}

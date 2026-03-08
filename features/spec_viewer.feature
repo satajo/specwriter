@@ -10,11 +10,13 @@ Feature: Spec viewer tab
   Scenario: Spec tab always shows filename with line count
     Then the screen should show "SPEC.md (0)"
 
-  Scenario: Tab cycles through all three tabs
+  Scenario: Tab cycles through all tabs
     When I press Tab
     Then the screen should show "navigate"
     When I press Tab
     Then the screen should show "No spec file yet"
+    When I press Tab
+    Then the screen should show "edit/toggle"
     When I press Tab
     Then the screen should show "Ctrl+S"
 

@@ -12,6 +12,7 @@ const SCREEN_HEIGHT: u16 = 30;
 struct SpecwriterWorld {
     runner: Option<AppRunner>,
     workdir: Option<TempDir>,
+    config_dir: Option<TempDir>,
 }
 
 impl SpecwriterWorld {
@@ -19,6 +20,7 @@ impl SpecwriterWorld {
         Self {
             runner: None,
             workdir: None,
+            config_dir: None,
         }
     }
 
@@ -26,12 +28,27 @@ impl SpecwriterWorld {
         self.workdir.as_ref().unwrap().path().to_path_buf()
     }
 
+    fn config_dir_path(&mut self) -> PathBuf {
+        if self.config_dir.is_none() {
+            self.config_dir = Some(TempDir::new().unwrap());
+        }
+        self.config_dir.as_ref().unwrap().path().to_path_buf()
+    }
+
     fn runner(&mut self) -> &mut AppRunner {
         self.runner.as_mut().expect("AppRunner not initialized")
     }
 
     fn start_with_config(&mut self, config: IntegratorConfig) {
-        let runner = AppRunner::new(config, SCREEN_WIDTH, SCREEN_HEIGHT);
+        let config_dir = self.config_dir_path();
+        let (settings, load_error) = specwriter::settings::Settings::load_from(&config_dir);
+        let mut runner = AppRunner::new(config, SCREEN_WIDTH, SCREEN_HEIGHT);
+        runner.app.settings = settings;
+        runner.app.config_dir = config_dir;
+        if let Some(err) = load_error {
+            runner.app.status = err;
+            runner.app.state = specwriter::AppState::Error;
+        }
         self.runner = Some(runner);
     }
 }
@@ -303,8 +320,7 @@ async fn press_esc(world: &mut SpecwriterWorld) {
 #[when("I switch to the questions tab")]
 async fn switch_to_questions_tab(world: &mut SpecwriterWorld) {
     use specwriter::ActiveTab;
-    // Press Tab until we're on the Questions tab
-    for _ in 0..3 {
+    for _ in 0..4 {
         if world.runner().app.active_tab == ActiveTab::Questions {
             return;
         }
@@ -317,7 +333,7 @@ async fn switch_to_questions_tab(world: &mut SpecwriterWorld) {
 #[when("I switch to the text input tab")]
 async fn switch_to_text_input_tab(world: &mut SpecwriterWorld) {
     use specwriter::ActiveTab;
-    for _ in 0..3 {
+    for _ in 0..4 {
         if world.runner().app.active_tab == ActiveTab::Writer {
             return;
         }
@@ -331,7 +347,7 @@ async fn switch_to_text_input_tab(world: &mut SpecwriterWorld) {
 #[when("I switch to the spec tab")]
 async fn switch_to_spec_tab(world: &mut SpecwriterWorld) {
     use specwriter::ActiveTab;
-    for _ in 0..3 {
+    for _ in 0..4 {
         if world.runner().app.active_tab == ActiveTab::Spec {
             return;
         }
@@ -339,6 +355,49 @@ async fn switch_to_spec_tab(world: &mut SpecwriterWorld) {
             .runner()
             .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
     }
+}
+
+#[given("I switch to the settings tab")]
+#[when("I switch to the settings tab")]
+async fn switch_to_settings_tab(world: &mut SpecwriterWorld) {
+    use specwriter::ActiveTab;
+    for _ in 0..4 {
+        if world.runner().app.active_tab == ActiveTab::Settings {
+            return;
+        }
+        world
+            .runner()
+            .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
+    }
+}
+
+#[then(expr = "the settings file should contain {string}")]
+async fn settings_file_should_contain(world: &mut SpecwriterWorld, expected: String) {
+    let config_dir = world.config_dir_path();
+    let path = config_dir.join("settings.json");
+    let content = std::fs::read_to_string(&path)
+        .unwrap_or_else(|_| panic!("Settings file not found at {:?}", path));
+    assert!(
+        content.contains(&expected),
+        "Settings file should contain '{}', but got:\n{}",
+        expected,
+        content
+    );
+}
+
+#[given(expr = "a settings file with claude command {string}")]
+async fn settings_file_with_command(world: &mut SpecwriterWorld, command: String) {
+    let config_dir = world.config_dir_path();
+    std::fs::create_dir_all(&config_dir).unwrap();
+    let content = format!(r#"{{"claude_command":"{}"}}"#, command);
+    std::fs::write(config_dir.join("settings.json"), content).unwrap();
+}
+
+#[given("a settings file with invalid content")]
+async fn settings_file_with_invalid_content(world: &mut SpecwriterWorld) {
+    let config_dir = world.config_dir_path();
+    std::fs::create_dir_all(&config_dir).unwrap();
+    std::fs::write(config_dir.join("settings.json"), "{not valid json}").unwrap();
 }
 
 // --- THEN steps ---
@@ -665,6 +724,7 @@ async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
         specwriter::ActiveTab::Writer => "Writer",
         specwriter::ActiveTab::Questions => "Open questions",
         specwriter::ActiveTab::Spec => "SPEC.md",
+        specwriter::ActiveTab::Settings => "Settings",
     };
     // Tab labels are on row index 3 (row 4, zero-indexed)
     assert!(

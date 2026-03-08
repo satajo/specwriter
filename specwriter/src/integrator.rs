@@ -45,6 +45,9 @@ pub struct IntegratorConfig {
     pub args: Vec<String>,
     pub working_dir: PathBuf,
     pub spec_filename: String,
+    pub model: Option<String>,
+    pub web_search: bool,
+    pub web_fetch: bool,
 }
 
 impl Default for IntegratorConfig {
@@ -55,6 +58,23 @@ impl Default for IntegratorConfig {
             args: Vec::new(),
             working_dir,
             spec_filename: "SPEC.md".into(),
+            model: None,
+            web_search: false,
+            web_fetch: false,
+        }
+    }
+}
+
+impl IntegratorConfig {
+    pub fn from_settings(settings: &crate::settings::Settings, working_dir: PathBuf) -> Self {
+        Self {
+            command: settings.claude_command.clone(),
+            args: Vec::new(),
+            working_dir,
+            spec_filename: settings.spec_filename.clone(),
+            model: settings.model.clone(),
+            web_search: settings.web_search,
+            web_fetch: settings.web_fetch,
         }
     }
 }
@@ -69,11 +89,22 @@ impl IntegratorConfig {
     /// Build CLI args with properly scoped tool permissions.
     /// Read is scoped to the working directory, Edit/Write only to the spec file.
     pub fn build_args(&self) -> Vec<String> {
+        let mut tools = format!("Read,Edit({}),Write({})", self.spec_filename, self.spec_filename);
+        if self.web_search {
+            tools.push_str(",WebSearch");
+        }
+        if self.web_fetch {
+            tools.push_str(",WebFetch");
+        }
         let mut args = vec![
             "--print".into(),
             "--allowedTools".into(),
-            format!("Read,Edit({}),Write({})", self.spec_filename, self.spec_filename),
+            tools,
         ];
+        if let Some(ref model) = self.model {
+            args.push("--model".into());
+            args.push(model.clone());
+        }
         args.extend(self.args.iter().cloned());
         args
     }
