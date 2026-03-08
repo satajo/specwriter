@@ -36,33 +36,8 @@ impl SpecwriterWorld {
     }
 }
 
-fn search_spec_files(spec_dir: &Path, needle: &str) -> bool {
-    if !spec_dir.exists() {
-        return false;
-    }
-    search_dir(spec_dir, needle)
-}
-
-fn search_dir(dir: &Path, needle: &str) -> bool {
-    if let Ok(entries) = std::fs::read_dir(dir) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let path = entry.path();
-                if path.is_dir() {
-                    if search_dir(&path, needle) {
-                        return true;
-                    }
-                } else if path.extension().map(|e| e == "md").unwrap_or(false) {
-                    if let Ok(content) = std::fs::read_to_string(&path) {
-                        if content.contains(needle) {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    false
+fn read_spec_file(workdir: &Path) -> Option<String> {
+    std::fs::read_to_string(workdir.join("SPEC.md")).ok()
 }
 
 // --- GIVEN steps ---
@@ -79,7 +54,6 @@ async fn running_with_mock(world: &mut SpecwriterWorld) {
         command: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -94,7 +68,6 @@ async fn running_with_no_questions_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -105,19 +78,6 @@ async fn running_with_command(world: &mut SpecwriterWorld, command: String) {
         command,
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
-    };
-    world.start_with_config(config);
-}
-
-#[given(expr = "the specwriter is running with specs dir {string} and a mock command")]
-async fn running_with_custom_specs_dir(world: &mut SpecwriterWorld, spec_dir: String) {
-    let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    let config = IntegratorConfig {
-        command: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
-        args: Vec::new(),
-        working_dir: world.workdir_path(),
-        spec_dir_name: spec_dir,
     };
     world.start_with_config(config);
 }
@@ -132,7 +92,6 @@ async fn running_with_session_expiry_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -147,7 +106,6 @@ async fn running_with_slow_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -162,7 +120,6 @@ async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -178,7 +135,6 @@ async fn running_with_silent_fail_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -193,7 +149,6 @@ async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
@@ -208,23 +163,18 @@ async fn running_with_prioritized_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
-        spec_dir_name: "specs".into(),
     };
     world.start_with_config(config);
 }
 
-#[given(expr = "the spec README already contains {string}")]
-async fn spec_readme_already_contains(world: &mut SpecwriterWorld, content: String) {
+#[given(expr = "SPEC.md already contains {string}")]
+async fn spec_already_contains(world: &mut SpecwriterWorld, content: String) {
     let content = content.replace("\\n", "\n");
-    let spec_dir = world.workdir_path().join("specs");
-    std::fs::create_dir_all(&spec_dir).unwrap();
-    std::fs::write(spec_dir.join("README.md"), content).unwrap();
+    std::fs::write(world.workdir_path().join("SPEC.md"), content).unwrap();
 }
 
-#[given("the spec README already contains 20 questions")]
-async fn spec_readme_contains_20_questions(world: &mut SpecwriterWorld) {
-    let spec_dir = world.workdir_path().join("specs");
-    std::fs::create_dir_all(&spec_dir).unwrap();
+#[given("SPEC.md already contains 20 questions")]
+async fn spec_contains_20_questions(world: &mut SpecwriterWorld) {
     let mut content = String::from("# App\n\n## Questions\n\n");
     for i in 1..=20 {
         content.push_str(&format!(
@@ -232,15 +182,7 @@ async fn spec_readme_contains_20_questions(world: &mut SpecwriterWorld) {
             i, i, i
         ));
     }
-    std::fs::write(spec_dir.join("README.md"), content).unwrap();
-}
-
-#[given(expr = "specs are in directory {string} with content {string}")]
-async fn specs_in_custom_dir(world: &mut SpecwriterWorld, dir: String, content: String) {
-    let content = content.replace("\\n", "\n");
-    let spec_dir = world.workdir_path().join(&dir);
-    std::fs::create_dir_all(&spec_dir).unwrap();
-    std::fs::write(spec_dir.join("README.md"), content).unwrap();
+    std::fs::write(world.workdir_path().join("SPEC.md"), content).unwrap();
 }
 
 // --- WHEN steps ---
@@ -361,24 +303,24 @@ async fn switch_to_text_input_tab(world: &mut SpecwriterWorld) {
 
 // --- THEN steps ---
 
-#[then("the spec README should exist")]
-async fn spec_readme_exists(world: &mut SpecwriterWorld) {
-    let path = world.workdir_path().join("specs").join("README.md");
-    assert!(path.exists(), "spec/README.md should exist at {:?}", path);
+#[then("the spec file should exist")]
+async fn spec_file_exists(world: &mut SpecwriterWorld) {
+    let path = world.workdir_path().join("SPEC.md");
+    assert!(path.exists(), "SPEC.md should exist at {:?}", path);
 }
 
-#[then("the spec directory should not exist")]
-async fn spec_dir_not_exists(world: &mut SpecwriterWorld) {
-    let path = world.workdir_path().join("specs");
-    assert!(!path.exists(), "spec/ should NOT exist at {:?}", path);
+#[then("the spec file should not exist")]
+async fn spec_file_not_exists(world: &mut SpecwriterWorld) {
+    let path = world.workdir_path().join("SPEC.md");
+    assert!(!path.exists(), "SPEC.md should NOT exist at {:?}", path);
 }
 
 #[then(expr = "the spec should contain {string}")]
 async fn spec_contains(world: &mut SpecwriterWorld, expected: String) {
-    let spec_dir = world.workdir_path().join("specs");
+    let content = read_spec_file(&world.workdir_path());
     assert!(
-        search_spec_files(&spec_dir, &expected),
-        "No spec file contains '{}'",
+        content.as_ref().map(|c| c.contains(&expected)).unwrap_or(false),
+        "SPEC.md does not contain '{}'",
         expected
     );
 }

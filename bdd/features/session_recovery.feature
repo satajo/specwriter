@@ -11,5 +11,5 @@ Feature: Session Recovery
     When I type "test requirement"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the spec README should exist
+    Then the spec file should exist
     And the screen should show "Idle."

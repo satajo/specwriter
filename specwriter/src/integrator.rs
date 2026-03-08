@@ -14,7 +14,6 @@ pub struct Question {
     pub id: usize,
     pub text: String,
     pub body: String,
-    pub file: String,
     pub priority: u8,
 }
 
@@ -23,7 +22,6 @@ pub struct IntegratorConfig {
     pub command: String,
     pub args: Vec<String>,
     pub working_dir: PathBuf,
-    pub spec_dir_name: String,
 }
 
 impl Default for IntegratorConfig {
@@ -33,20 +31,18 @@ impl Default for IntegratorConfig {
             command: "claude".into(),
             args: Vec::new(),
             working_dir,
-            spec_dir_name: "specs".into(),
         }
     }
 }
 
 impl IntegratorConfig {
     /// Build CLI args with properly scoped tool permissions.
-    /// Read is scoped to the working directory, Edit/Write to the specs directory.
+    /// Read is scoped to the working directory, Edit/Write only to SPEC.md.
     pub fn build_args(&self) -> Vec<String> {
-        let spec_path = format!("{}/**", self.spec_dir_name);
         let mut args = vec![
             "--print".into(),
             "--allowedTools".into(),
-            format!("Read,Edit({}),Write({})", spec_path, spec_path),
+            "Read,Edit(SPEC.md),Write(SPEC.md)".into(),
         ];
         args.extend(self.args.iter().cloned());
         args
@@ -78,7 +74,7 @@ async fn integrator_loop(
     ui_tx: mpsc::UnboundedSender<IntegratorMessage>,
     config: IntegratorConfig,
 ) {
-    let spec_dir = config.working_dir.join(&config.spec_dir_name);
+    let spec_file = config.working_dir.join("SPEC.md");
     // Session ID for CLI session reuse across integrations
     let mut session_id = Uuid::new_v4().to_string();
 
@@ -114,60 +110,36 @@ async fn integrator_loop(
             };
             let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
 
-            // Create spec directory if it doesn't exist
-            if !spec_dir.exists() {
-                if let Err(e) = std::fs::create_dir_all(&spec_dir) {
-                    let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!(
-                        "Error! Failed to create spec directory: {e}"
-                    )));
-                    errored = true;
-                    break;
-                }
-            }
-
-            let readme_path = spec_dir.join("README.md");
-            let spec_is_empty = !readme_path.exists()
-                || std::fs::read_to_string(&readme_path)
+            let spec_is_empty = !spec_file.exists()
+                || std::fs::read_to_string(&spec_file)
                     .map(|s| s.trim().is_empty())
                     .unwrap_or(true);
             let message = &queue[i];
 
-            let sd = &config.spec_dir_name;
             let prompt = if !spec_is_empty {
                 format!(
-                    r#"You are a requirements integrator managing a spec knowledge base under the {sd}/ directory.
+                    r#"You are a requirements integrator managing a spec in SPEC.md.
 
-Read {sd}/README.md to orient yourself, then read whatever other spec files you deem relevant for integrating the following user message.
+Read SPEC.md to orient yourself, then integrate the following user message.
 
 RULES:
 - Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
-- You are integrating a thought-stream of requirements into a cohesive knowledge base, not writing a technical spec.
+- You are integrating a thought-stream of requirements into a cohesive spec, not writing a technical spec.
 - Preserve the user's intent and language where possible.
 - Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain coherence and quality, while always preserving intent.
-- If the input seems unrelated to existing content, create a new topic area or file as appropriate.
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
 SPEC STRUCTURE:
-- All spec files live under {sd}/
-- {sd}/README.md is the primary entrypoint — it should always exist and be useful
-- For a small spec, README.md may contain all the substance; as the knowledge base grows, it shifts toward an index role pointing readers to the right spec files
-- Prefer keeping README.md self-contained and substantive — err on the side of a longer README over premature splitting
-- You may create additional spec files or subdirectories as needed
+- The entire spec lives in a single SPEC.md file
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
 - Limit line lengths to approximately 120 characters for terminal readability
-
-SPEC ORGANIZATION:
-- You own the organization of {sd}/ — create, split, merge, rename files as you see fit
-- Use whatever structure and naming makes sense for the material
-- Clean up empty or low-value files
-- READMEs should add value through descriptions and context, not mirror directory structure
 
 CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
 
 QUESTIONS:
-Place clarifying questions at the END of each spec file under a `## Questions` heading. Each question is a ### subheading:
+Place clarifying questions at the END of SPEC.md under a `## Questions` heading. Each question is a ### subheading:
 
 ### Q<number> (p<priority>): <short title>
 
@@ -175,7 +147,6 @@ Place clarifying questions at the END of each spec file under a `## Questions` h
 
 where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer. The title gives a scannable summary; the body elaborates as needed.
 
-Questions are global across the knowledge base.
 - Keep questions that are still relevant and unanswered (preserve their IDs and update priority as context evolves)
 - Remove questions that have been answered or are no longer relevant
 - Add new questions with IDs higher than any existing question ID
@@ -184,7 +155,7 @@ Questions are global across the knowledge base.
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
-Do NOT output questions to stdout — place them in the spec files only.
+Do NOT output questions to stdout — place them in SPEC.md only.
 
 User message:
 
@@ -192,18 +163,17 @@ User message:
                 )
             } else {
                 format!(
-                    r#"You are a requirements integrator. Create a new spec knowledge base under the {sd}/ directory based on the following user message.
+                    r#"You are a requirements integrator. Create a new spec in SPEC.md based on the following user message.
 
 RULES:
 - Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
-- You are integrating a thought-stream of requirements into a cohesive knowledge base, not writing a technical spec.
+- You are integrating a thought-stream of requirements into a cohesive spec, not writing a technical spec.
 - Preserve the user's intent and language where possible.
 - Exercise judgment about the weight and nature of each input. Not all inputs are equal — some are core requirements, others are asides or loosely structured thoughts. Summarize, condense, or reframe as appropriate to maintain coherence and quality, while always preserving intent.
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
 SPEC STRUCTURE:
-- Create {sd}/README.md as the primary entrypoint
-- For a small initial spec, README.md should contain all the substance
+- Write everything to a single SPEC.md file
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
 - Limit line lengths to approximately 120 characters for terminal readability
@@ -212,7 +182,7 @@ CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
 
 QUESTIONS:
-Place clarifying questions at the END of the spec file under a `## Questions` heading. Each question is a ### subheading:
+Place clarifying questions at the END of SPEC.md under a `## Questions` heading. Each question is a ### subheading:
 
 ### Q<number> (p<priority>): <short title>
 
@@ -222,7 +192,7 @@ where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how
 
 Assign sequential IDs starting from 1. Be aggressive about generating questions — there should always be at least a few open questions after each integration. A spec with zero questions is a sign you aren't doing your job: every spec has unexplored dimensions, unstated assumptions, or areas that could benefit from clarification. Questions are the primary mechanism for driving the conversation forward. Each question should be self-contained — understandable without cross-referencing.
 
-Do NOT output questions to stdout — place them in the spec files only.
+Do NOT output questions to stdout — place them in SPEC.md only.
 
 User message:
 
@@ -258,7 +228,7 @@ User message:
             match result {
                 Ok(_) => {
                     first_call = false;
-                    let questions = scan_questions(&spec_dir);
+                    let questions = scan_questions(&spec_file);
                     let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
                 }
                 Err(e) => {
@@ -274,7 +244,7 @@ User message:
                         match retry {
                             Ok(_) => {
                                 first_call = false;
-                                let questions = scan_questions(&spec_dir);
+                                let questions = scan_questions(&spec_file);
                                 let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
                             }
                             Err(e2) => {
@@ -335,44 +305,18 @@ async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &
     Ok(String::from_utf8_lossy(&output.stdout).to_string())
 }
 
-/// Scan all markdown files under specs/ for questions under ## Questions headings.
+/// Scan SPEC.md for questions under ## Questions headings.
 /// Returns Questions sorted by priority (highest first).
-pub fn scan_questions(spec_dir: &Path) -> Vec<Question> {
+pub fn scan_questions(spec_file: &Path) -> Vec<Question> {
     let mut questions = Vec::new();
-    if !spec_dir.exists() {
-        return questions;
+    if let Ok(content) = std::fs::read_to_string(spec_file) {
+        parse_questions_from_content(&content, &mut questions);
     }
-    scan_dir_for_questions(spec_dir, spec_dir, &mut questions);
     questions.sort_by(|a, b| b.priority.cmp(&a.priority).then(a.id.cmp(&b.id)));
     questions
 }
 
-fn scan_dir_for_questions(base_dir: &Path, dir: &Path, questions: &mut Vec<Question>) {
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return,
-    };
-    for entry in entries {
-        let entry = match entry {
-            Ok(e) => e,
-            Err(_) => continue,
-        };
-        let path = entry.path();
-        if path.is_dir() {
-            scan_dir_for_questions(base_dir, &path, questions);
-        } else if path.extension().map(|e| e == "md").unwrap_or(false) {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                let rel_path = path.strip_prefix(base_dir)
-                    .unwrap_or(&path)
-                    .to_string_lossy()
-                    .to_string();
-                parse_questions_from_content(&content, &rel_path, questions);
-            }
-        }
-    }
-}
-
-fn parse_questions_from_content(content: &str, file: &str, questions: &mut Vec<Question>) {
+fn parse_questions_from_content(content: &str, questions: &mut Vec<Question>) {
     let mut in_questions_section = false;
     let mut current_question: Option<Question> = None;
     let mut body_lines: Vec<String> = Vec::new();
@@ -389,7 +333,7 @@ fn parse_questions_from_content(content: &str, file: &str, questions: &mut Vec<Q
         if !in_questions_section {
             continue;
         }
-        if let Some(q) = parse_question_heading(trimmed, file) {
+        if let Some(q) = parse_question_heading(trimmed) {
             // Flush previous question
             if let Some(mut prev) = current_question.take() {
                 prev.body = body_lines.join("\n").trim().to_string();
@@ -409,7 +353,7 @@ fn parse_questions_from_content(content: &str, file: &str, questions: &mut Vec<Q
 }
 
 /// Parse a `### Q<id> (p<priority>): <title>` heading line.
-fn parse_question_heading(line: &str, file: &str) -> Option<Question> {
+fn parse_question_heading(line: &str) -> Option<Question> {
     let rest = line.strip_prefix("### Q")?;
     let colon_pos = rest.find(':')?;
     let before_colon = rest[..colon_pos].trim();
@@ -429,5 +373,5 @@ fn parse_question_heading(line: &str, file: &str) -> Option<Question> {
     if text.is_empty() {
         return None;
     }
-    Some(Question { id, text, body: String::new(), file: file.to_string(), priority })
+    Some(Question { id, text, body: String::new(), priority })
 }

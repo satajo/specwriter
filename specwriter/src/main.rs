@@ -12,24 +12,7 @@ use specwriter::integrator::IntegratorConfig;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let mut config = IntegratorConfig::default();
-
-    // Parse --specs-dir argument
-    let args: Vec<String> = std::env::args().collect();
-    let mut i = 1;
-    while i < args.len() {
-        if args[i] == "--specs-dir" {
-            if i + 1 < args.len() {
-                config.spec_dir_name = args[i + 1].clone();
-                i += 2;
-            } else {
-                eprintln!("Error: --specs-dir requires a value");
-                std::process::exit(1);
-            }
-        } else {
-            i += 1;
-        }
-    }
+    let config = IntegratorConfig::default();
 
     enable_raw_mode()?;
     let mut stdout = io::stdout();

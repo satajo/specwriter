@@ -13,19 +13,19 @@ Feature: Spec Integration
     And the screen should show "Open Questions"
     And the screen should show "Ctrl+S"
 
-  Scenario: Spec directory does not exist at launch
-    Then the spec directory should not exist
+  Scenario: SPEC.md does not exist at launch
+    Then the spec file should not exist
 
-  Scenario: First message creates the spec knowledge base
+  Scenario: First message creates the spec
     When I type "The app should have a login page"
     And I press Ctrl+S
     And I wait for integration to complete
-    Then the spec README should exist
+    Then the spec file should exist
     And the spec should contain "login"
     And the screen should show "Idle."
 
   Scenario: Subsequent messages update the existing spec
-    Given the spec README already contains "# Spec\n\nThe app has a login page."
+    Given SPEC.md already contains "# Spec\n\nThe app has a login page."
     When I type "Users should also be able to reset their password"
     And I press Ctrl+S
     And I wait for integration to complete

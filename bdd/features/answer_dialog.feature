@@ -5,7 +5,7 @@ Feature: Answer Dialog
 
   Background:
     Given a clean working directory
-    Given the spec README already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
     And the specwriter is running with a mock command
 
   Scenario: Enter opens answer dialog for focused question

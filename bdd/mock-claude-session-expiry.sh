@@ -14,7 +14,5 @@ for arg in "$@"; do
 done
 
 # Fresh session (--session-id): succeed
-SPEC_DIR="$WORKDIR/specs"
-mkdir -p "$SPEC_DIR"
-printf '# Spec\n\nRecovered session content.\n' > "$SPEC_DIR/README.md"
+printf '# Spec\n\nRecovered session content.\n' > "$WORKDIR/SPEC.md"
 echo "Integration complete with fresh session."

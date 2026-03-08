@@ -207,7 +207,7 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
         .skip(list_scroll)
         .take(list_inner_height)
         .map(|(i, q)| {
-            let line = format!("  Q{} (p{}). {} ({})", q.id, q.priority, q.text, q.file);
+            let line = format!("  Q{} (p{}). {}", q.id, q.priority, q.text);
             let style = if i == app.question_focus {
                 Style::default().fg(Color::Black).bg(Color::Yellow)
             } else {
@@ -223,13 +223,13 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
     let focused = &app.questions[app.question_focus];
     let detail_text = if focused.body.is_empty() {
         format!(
-            "Q{} (p{}): {}\n\nFrom: {}",
-            focused.id, focused.priority, focused.text, focused.file
+            "Q{} (p{}): {}",
+            focused.id, focused.priority, focused.text
         )
     } else {
         format!(
-            "Q{} (p{}): {}\n\n{}\n\nFrom: {}",
-            focused.id, focused.priority, focused.text, focused.body, focused.file
+            "Q{} (p{}): {}\n\n{}",
+            focused.id, focused.priority, focused.text, focused.body
         )
     };
     let detail_block = Block::default()

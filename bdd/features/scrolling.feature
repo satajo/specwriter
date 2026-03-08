@@ -5,7 +5,7 @@ Feature: Scrolling
 
   Scenario: Question list scrolls to keep focused question visible
     Given a clean working directory
-    And the spec README already contains 20 questions
+    And SPEC.md already contains 20 questions
     And the specwriter is running with a mock command
     When I switch to the questions tab
     And I press Down 15 times
@@ -14,7 +14,7 @@ Feature: Scrolling
 
   Scenario: Question list scrolls back up
     Given a clean working directory
-    And the spec README already contains 20 questions
+    And SPEC.md already contains 20 questions
     And the specwriter is running with a mock command
     When I switch to the questions tab
     And I press Down 15 times
