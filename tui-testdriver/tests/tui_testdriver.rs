@@ -117,11 +117,14 @@ async fn running_with_session_expiry_mock(world: &mut SpecwriterWorld) {
     world.start_with_config(config);
 }
 
-#[given("the specwriter is running with a slow mock command")]
-async fn running_with_slow_mock(world: &mut SpecwriterWorld) {
+#[given("the specwriter is running with a blocking mock command")]
+async fn running_with_blocking_mock(world: &mut SpecwriterWorld) {
     let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let config = IntegratorConfig {
-        command: bdd_dir.join("mock-claude-slow.sh").to_string_lossy().into(),
+        command: bdd_dir
+            .join("mock-claude-blocking.sh")
+            .to_string_lossy()
+            .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
         ..Default::default()
@@ -225,6 +228,19 @@ async fn wait_for_integration(world: &mut SpecwriterWorld) {
 async fn wait_for_all_integrations(world: &mut SpecwriterWorld) {
     world.runner().wait_for_integration().await;
     world.runner().wait_until_idle().await;
+}
+
+#[when("I let the integration proceed")]
+async fn let_integration_proceed(world: &mut SpecwriterWorld) {
+    let signal = world.workdir_path().join(".mock-proceed");
+    std::fs::write(&signal, "").unwrap();
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+    while signal.exists() {
+        if tokio::time::Instant::now() > deadline {
+            panic!("Mock did not consume signal within 5s");
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
 }
 
 #[when(expr = "I wait for status to contain {string}")]

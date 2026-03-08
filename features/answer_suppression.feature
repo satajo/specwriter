@@ -6,7 +6,7 @@ Feature: Answered question suppression
   Background:
     Given a clean working directory
     Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Target platform?\n\nWeb, mobile, or desktop?"
-    And the specwriter is running with a slow mock command
+    And the specwriter is running with a blocking mock command
 
   Scenario: Answered question does not reappear when integration refreshes questions
     When I switch to the questions tab

@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
-# Slow mock claude CLI for testing queue progress.
-# Same as mock-claude.sh but with a delay to ensure queue can form.
+# Blocking mock claude CLI for testing.
+# Waits for a signal file before completing, giving tests deterministic control.
 
 PROMPT="${@: -1}"
 WORKDIR="$(pwd)"
 SPEC="$WORKDIR/SPEC.md"
 
-# Delay to allow multiple messages to queue up
-sleep 0.3
+# Wait for signal file to proceed
+SIGNAL="$WORKDIR/.mock-proceed"
+WAITED=0
+while [ ! -f "$SIGNAL" ]; do
+    sleep 0.01
+    WAITED=$((WAITED + 1))
+    [ "$WAITED" -ge 1000 ] && exit 1  # 10s safety timeout
+done
+rm -f "$SIGNAL"
 
 # Create or update base content
 if [ -f "$SPEC" ] && [ -s "$SPEC" ]; then
