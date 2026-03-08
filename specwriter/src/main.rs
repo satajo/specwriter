@@ -7,9 +7,9 @@ use futures::StreamExt;
 use ratatui::prelude::*;
 use std::io;
 
-use specwriter::App;
 use specwriter::integrator::IntegratorConfig;
 use specwriter::settings::Settings;
+use specwriter::App;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {

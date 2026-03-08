@@ -32,6 +32,7 @@
           buildInputs = [
             rustToolchain
             pkgs.rust-analyzer
+            pkgs.gnumake
           ];
         };
       }

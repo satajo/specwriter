@@ -89,18 +89,17 @@ impl IntegratorConfig {
     /// Build CLI args with properly scoped tool permissions.
     /// Read is scoped to the working directory, Edit/Write only to the spec file.
     pub fn build_args(&self) -> Vec<String> {
-        let mut tools = format!("Read,Edit({}),Write({})", self.spec_filename, self.spec_filename);
+        let mut tools = format!(
+            "Read,Edit({}),Write({})",
+            self.spec_filename, self.spec_filename
+        );
         if self.web_search {
             tools.push_str(",WebSearch");
         }
         if self.web_fetch {
             tools.push_str(",WebFetch");
         }
-        let mut args = vec![
-            "--print".into(),
-            "--allowedTools".into(),
-            tools,
-        ];
+        let mut args = vec!["--print".into(), "--allowedTools".into(), tools];
         if let Some(ref model) = self.model {
             args.push("--model".into());
             args.push(model.clone());
@@ -118,15 +117,16 @@ pub struct IntegratorHandle {
 }
 
 impl IntegratorHandle {
-    pub fn new(
-        ui_tx: mpsc::UnboundedSender<IntegratorMessage>,
-        config: IntegratorConfig,
-    ) -> Self {
+    pub fn new(ui_tx: mpsc::UnboundedSender<IntegratorMessage>, config: IntegratorConfig) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let working_dir = config.working_dir.clone();
         let spec_filename = config.spec_filename.clone();
         tokio::spawn(integrator_loop(rx, ui_tx, config));
-        Self { tx, working_dir, spec_filename }
+        Self {
+            tx,
+            working_dir,
+            spec_filename,
+        }
     }
 
     pub fn send(&self, message: String) {
@@ -178,7 +178,7 @@ async fn integrator_loop(
         }
 
         // Take the entire batch
-        let batch: Vec<String> = pending.drain(..).collect();
+        let batch: Vec<String> = std::mem::take(&mut pending);
         let _ = ui_tx.send(IntegratorMessage::StatusUpdate("Integrating".into()));
 
         let message = format_messages(&batch);
@@ -189,9 +189,17 @@ async fn integrator_loop(
 
         let sf = &config.spec_filename;
         let prompt = if !spec_is_empty {
-            IntegratePrompt { sf, message: &message }.to_string()
+            IntegratePrompt {
+                sf,
+                message: &message,
+            }
+            .to_string()
         } else {
-            CreateSpecPrompt { sf, message: &message }.to_string()
+            CreateSpecPrompt {
+                sf,
+                message: &message,
+            }
+            .to_string()
         };
 
         let extra_args: Vec<String> = if first_call {
@@ -248,15 +256,20 @@ async fn integrator_loop(
 
                     let retry_message = format_messages(&retry_messages);
                     let retry_prompt = if !spec_is_empty {
-                        IntegratePrompt { sf, message: &retry_message }.to_string()
+                        IntegratePrompt {
+                            sf,
+                            message: &retry_message,
+                        }
+                        .to_string()
                     } else {
-                        CreateSpecPrompt { sf, message: &retry_message }.to_string()
+                        CreateSpecPrompt {
+                            sf,
+                            message: &retry_message,
+                        }
+                        .to_string()
                     };
 
-                    let fresh_args = vec![
-                        "--session-id".to_string(),
-                        session_id.clone(),
-                    ];
+                    let fresh_args = vec!["--session-id".to_string(), session_id.clone()];
                     let retry = run_command(&config, &fresh_args, &retry_prompt).await;
                     match retry {
                         Ok(_) => {
@@ -274,16 +287,15 @@ async fn integrator_loop(
                         }
                         Err(e2) => {
                             // Double failure: drain and discard everything
-                            while let Ok(_) = rx.try_recv() {}
+                            while rx.try_recv().is_ok() {}
                             pending.clear();
-                            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-                                format!("Error! {e2}"),
-                            ));
+                            let _ =
+                                ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error! {e2}")));
                         }
                     }
                 } else {
                     // First call failed — no recovery possible
-                    while let Ok(_) = rx.try_recv() {}
+                    while rx.try_recv().is_ok() {}
                     pending.clear();
                     let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error! {e}")));
                 }
@@ -292,10 +304,13 @@ async fn integrator_loop(
     }
 }
 
-
-async fn run_command(config: &IntegratorConfig, extra_args: &[String], prompt: &str) -> Result<String, String> {
+async fn run_command(
+    config: &IntegratorConfig,
+    extra_args: &[String],
+    prompt: &str,
+) -> Result<String, String> {
     let output = Command::new(&config.command)
-        .args(&config.build_args())
+        .args(config.build_args())
         .args(extra_args)
         .arg("-p")
         .arg(prompt)
@@ -385,7 +400,10 @@ fn parse_questions_from_content(content: &str, questions: &mut Vec<Question>) {
                 }
             }
             let title = trimmed.strip_prefix("#### ").unwrap().trim().to_string();
-            current_solution = Some(Solution { title, body: String::new() });
+            current_solution = Some(Solution {
+                title,
+                body: String::new(),
+            });
         } else if current_solution.is_some() {
             solution_body_lines.push(line.to_string());
         } else if current_question.is_some() {
@@ -430,6 +448,12 @@ fn parse_question_heading(line: &str) -> Option<Question> {
         return None;
     }
     // Clamp priority to 1-5 range for display; values > 5 from legacy specs map to 5
-    let priority = priority.min(5).max(1);
-    Some(Question { id, text, body: String::new(), priority, solutions: Vec::new() })
+    let priority = priority.clamp(1, 5);
+    Some(Question {
+        id,
+        text,
+        body: String::new(),
+        priority,
+        solutions: Vec::new(),
+    })
 }

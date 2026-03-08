@@ -2,8 +2,8 @@ pub mod integrator;
 pub mod settings;
 pub mod ui;
 
-pub use crossterm::event::{KeyCode, KeyModifiers};
 use crossterm::event::KeyEvent;
+pub use crossterm::event::{KeyCode, KeyModifiers};
 use ratatui::{backend::TestBackend, style::Color, Terminal};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -191,7 +191,8 @@ impl App {
                             self.question_focus = 0;
                         }
                     }
-                } else if !self.questions.is_empty() && self.question_focus >= self.questions.len() {
+                } else if !self.questions.is_empty() && self.question_focus >= self.questions.len()
+                {
                     self.question_focus = self.questions.len() - 1;
                 }
             }
@@ -332,8 +333,7 @@ impl App {
                 self.move_home();
             }
             KeyEvent {
-                code: KeyCode::End,
-                ..
+                code: KeyCode::End, ..
             } => {
                 self.move_end();
             }
@@ -418,54 +418,91 @@ impl App {
         if let Some(ref mut edit) = self.settings_editing {
             // Currently editing a text field
             match key {
-                KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, .. } => {
+                KeyEvent {
+                    code: KeyCode::Enter,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                } => {
                     // Confirm: accept edit value
                     let value = edit.buffer.clone();
                     self.settings.set_value(self.settings_focus, value);
                     self.settings_editing = None;
                 }
-                KeyEvent { code: KeyCode::Esc, .. } => {
+                KeyEvent {
+                    code: KeyCode::Esc, ..
+                } => {
                     // Cancel: revert to pre-edit value
                     let original = edit.pre_edit_value.clone();
                     self.settings.set_value(self.settings_focus, original);
                     self.settings_editing = None;
                 }
-                KeyEvent { code: KeyCode::Backspace, .. } => {
+                KeyEvent {
+                    code: KeyCode::Backspace,
+                    ..
+                } => {
                     if edit.cursor_pos > 0 {
                         let prev = edit.buffer[..edit.cursor_pos]
-                            .char_indices().last().map(|(i, _)| i).unwrap_or(0);
+                            .char_indices()
+                            .last()
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
                         edit.buffer.replace_range(prev..edit.cursor_pos, "");
                         edit.cursor_pos = prev;
                     }
                 }
-                KeyEvent { code: KeyCode::Delete, .. } => {
+                KeyEvent {
+                    code: KeyCode::Delete,
+                    ..
+                } => {
                     if edit.cursor_pos < edit.buffer.len() {
                         let next = edit.buffer[edit.cursor_pos..]
-                            .char_indices().nth(1).map(|(i, _)| edit.cursor_pos + i)
+                            .char_indices()
+                            .nth(1)
+                            .map(|(i, _)| edit.cursor_pos + i)
                             .unwrap_or(edit.buffer.len());
                         edit.buffer.replace_range(edit.cursor_pos..next, "");
                     }
                 }
-                KeyEvent { code: KeyCode::Left, .. } => {
+                KeyEvent {
+                    code: KeyCode::Left,
+                    ..
+                } => {
                     if edit.cursor_pos > 0 {
                         edit.cursor_pos = edit.buffer[..edit.cursor_pos]
-                            .char_indices().last().map(|(i, _)| i).unwrap_or(0);
+                            .char_indices()
+                            .last()
+                            .map(|(i, _)| i)
+                            .unwrap_or(0);
                     }
                 }
-                KeyEvent { code: KeyCode::Right, .. } => {
+                KeyEvent {
+                    code: KeyCode::Right,
+                    ..
+                } => {
                     if edit.cursor_pos < edit.buffer.len() {
                         edit.cursor_pos = edit.buffer[edit.cursor_pos..]
-                            .char_indices().nth(1).map(|(i, _)| edit.cursor_pos + i)
+                            .char_indices()
+                            .nth(1)
+                            .map(|(i, _)| edit.cursor_pos + i)
                             .unwrap_or(edit.buffer.len());
                     }
                 }
-                KeyEvent { code: KeyCode::Home, .. } => {
+                KeyEvent {
+                    code: KeyCode::Home,
+                    ..
+                } => {
                     edit.cursor_pos = 0;
                 }
-                KeyEvent { code: KeyCode::End, .. } => {
+                KeyEvent {
+                    code: KeyCode::End, ..
+                } => {
                     edit.cursor_pos = edit.buffer.len();
                 }
-                KeyEvent { code: KeyCode::Char(c), modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT, .. } => {
+                KeyEvent {
+                    code: KeyCode::Char(c),
+                    modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+                    ..
+                } => {
                     edit.buffer.insert(edit.cursor_pos, c);
                     edit.cursor_pos += c.len_utf8();
                 }
@@ -476,17 +513,25 @@ impl App {
 
         // Not editing — navigation mode
         match key {
-            KeyEvent { code: KeyCode::Down, .. } => {
+            KeyEvent {
+                code: KeyCode::Down,
+                ..
+            } => {
                 if self.settings_focus < Settings::COUNT - 1 {
                     self.settings_focus += 1;
                 }
             }
-            KeyEvent { code: KeyCode::Up, .. } => {
+            KeyEvent {
+                code: KeyCode::Up, ..
+            } => {
                 if self.settings_focus > 0 {
                     self.settings_focus -= 1;
                 }
             }
-            KeyEvent { code: KeyCode::Enter, .. } => {
+            KeyEvent {
+                code: KeyCode::Enter,
+                ..
+            } => {
                 if Settings::is_boolean(self.settings_focus) {
                     self.settings.toggle(self.settings_focus);
                 } else {
@@ -499,7 +544,11 @@ impl App {
                     });
                 }
             }
-            KeyEvent { code: KeyCode::Char('s'), modifiers: KeyModifiers::CONTROL, .. } => {
+            KeyEvent {
+                code: KeyCode::Char('s'),
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            } => {
                 self.settings_save_dialog = true;
             }
             _ => {}
@@ -519,7 +568,13 @@ impl App {
     }
 
     fn handle_solution_select_key(&mut self, key: KeyEvent, focus: usize) {
-        let num_solutions = self.answer_dialog.as_ref().unwrap().question.solutions.len();
+        let num_solutions = self
+            .answer_dialog
+            .as_ref()
+            .unwrap()
+            .question
+            .solutions
+            .len();
         // Last item (index == num_solutions) is "Write custom answer"
         let max_focus = num_solutions;
         match key.code {
@@ -543,8 +598,7 @@ impl App {
             KeyCode::Enter => {
                 if focus < num_solutions {
                     // Select this solution (include title and body)
-                    let sol = &self.answer_dialog.as_ref().unwrap()
-                        .question.solutions[focus];
+                    let sol = &self.answer_dialog.as_ref().unwrap().question.solutions[focus];
                     let answer = if sol.body.is_empty() {
                         sol.title.clone()
                     } else {
@@ -570,7 +624,9 @@ impl App {
             KeyEvent {
                 code: KeyCode::Esc, ..
             } => {
-                let has_solutions = self.answer_dialog.as_ref()
+                let has_solutions = self
+                    .answer_dialog
+                    .as_ref()
                     .map(|d| !d.question.solutions.is_empty())
                     .unwrap_or(false);
                 if has_solutions {
@@ -669,8 +725,7 @@ impl App {
                 }
             }
             KeyEvent {
-                code: KeyCode::End,
-                ..
+                code: KeyCode::End, ..
             } => {
                 if let Some(ref mut d) = self.answer_dialog {
                     let after = &d.input[d.cursor_pos..];
@@ -787,9 +842,7 @@ impl AppRunner {
 
     /// Render the UI and return the screen content as a string.
     pub fn render(&mut self) -> String {
-        self.terminal
-            .draw(|f| ui::draw(f, &self.app))
-            .unwrap();
+        self.terminal.draw(|f| ui::draw(f, &self.app)).unwrap();
         let buf = self.terminal.backend().buffer().clone();
         let mut lines = Vec::new();
         for y in 0..buf.area.height {
@@ -809,9 +862,7 @@ impl AppRunner {
 
     /// Check if text at a given row contains bold cells matching the needle.
     pub fn has_bold_text_on_row(&mut self, row: u16, needle: &str) -> bool {
-        self.terminal
-            .draw(|f| ui::draw(f, &self.app))
-            .unwrap();
+        self.terminal.draw(|f| ui::draw(f, &self.app)).unwrap();
         let buf = self.terminal.backend().buffer().clone();
         if row >= buf.area.height {
             return false;
@@ -828,9 +879,7 @@ impl AppRunner {
                 if cell.symbol().trim().is_empty() {
                     continue;
                 }
-                return cell
-                    .modifier
-                    .contains(ratatui::style::Modifier::BOLD);
+                return cell.modifier.contains(ratatui::style::Modifier::BOLD);
             }
         }
         false
@@ -866,11 +915,8 @@ impl AppRunner {
     pub async fn wait_for_integration(&mut self) {
         let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
         while tokio::time::Instant::now() < deadline {
-            match tokio::time::timeout(
-                tokio::time::Duration::from_millis(100),
-                self.ui_rx.recv(),
-            )
-            .await
+            match tokio::time::timeout(tokio::time::Duration::from_millis(100), self.ui_rx.recv())
+                .await
             {
                 Ok(Some(msg)) => {
                     let done = matches!(&msg, IntegratorMessage::IntegrationComplete)
@@ -898,11 +944,8 @@ impl AppRunner {
     pub async fn wait_for_status_to_contain(&mut self, needle: &str) {
         let deadline = tokio::time::Instant::now() + tokio::time::Duration::from_secs(5);
         while tokio::time::Instant::now() < deadline {
-            match tokio::time::timeout(
-                tokio::time::Duration::from_millis(100),
-                self.ui_rx.recv(),
-            )
-            .await
+            match tokio::time::timeout(tokio::time::Duration::from_millis(100), self.ui_rx.recv())
+                .await
             {
                 Ok(Some(msg)) => {
                     self.app.update_from_integrator(msg);
@@ -923,11 +966,8 @@ impl AppRunner {
     /// Wait until all pending integrations are done (no new completions for 500ms).
     pub async fn wait_until_idle(&mut self) {
         loop {
-            match tokio::time::timeout(
-                tokio::time::Duration::from_millis(500),
-                self.ui_rx.recv(),
-            )
-            .await
+            match tokio::time::timeout(tokio::time::Duration::from_millis(500), self.ui_rx.recv())
+                .await
             {
                 Ok(Some(msg)) => {
                     self.app.update_from_integrator(msg);
@@ -947,9 +987,7 @@ impl AppRunner {
     /// Returns (color_name, is_bold) for the first non-space character of the needle.
     /// color_name is one of: "red", "yellow", "green", "blue", "gray", "white", "default", "other".
     pub fn text_style_on_screen(&mut self, needle: &str) -> (String, bool) {
-        self.terminal
-            .draw(|f| ui::draw(f, &self.app))
-            .unwrap();
+        self.terminal.draw(|f| ui::draw(f, &self.app)).unwrap();
         let buf = self.terminal.backend().buffer().clone();
         for y in 0..buf.area.height {
             let mut row_text = String::new();
@@ -972,9 +1010,7 @@ impl AppRunner {
                         Color::Reset => "default",
                         _ => "other",
                     };
-                    let bold = cell
-                        .modifier
-                        .contains(ratatui::style::Modifier::BOLD);
+                    let bold = cell.modifier.contains(ratatui::style::Modifier::BOLD);
                     return (color_name.to_string(), bold);
                 }
             }
@@ -989,9 +1025,7 @@ impl AppRunner {
 
     /// Scan row 1 for the most prominent non-default foreground color.
     pub fn status_line_color_name(&mut self) -> String {
-        self.terminal
-            .draw(|f| ui::draw(f, &self.app))
-            .unwrap();
+        self.terminal.draw(|f| ui::draw(f, &self.app)).unwrap();
         let buf = self.terminal.backend().buffer().clone();
         for x in 0..buf.area.width {
             let cell = &buf[(x, 1)];
@@ -1010,9 +1044,7 @@ impl AppRunner {
 
     /// Get a snapshot of row 1 content for animation comparison.
     pub fn status_indicator_snapshot(&mut self) -> String {
-        self.terminal
-            .draw(|f| ui::draw(f, &self.app))
-            .unwrap();
+        self.terminal.draw(|f| ui::draw(f, &self.app)).unwrap();
         let buf = self.terminal.backend().buffer().clone();
         let mut s = String::new();
         for x in 0..buf.area.width {

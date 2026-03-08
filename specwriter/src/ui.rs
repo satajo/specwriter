@@ -1,6 +1,6 @@
 use ratatui::{prelude::*, widgets::*};
 
-use crate::{ActiveTab, AnswerMode, App, AppState, settings::Settings};
+use crate::{settings::Settings, ActiveTab, AnswerMode, App, AppState};
 
 const DOT_TICKS_PER_FRAME: u64 = 1;
 
@@ -12,12 +12,11 @@ fn status_line(app: &App) -> Line<'_> {
             let text = format!(" {}{}", app.status, dots);
             Line::from(Span::styled(text, Style::default().fg(Color::Yellow)))
         }
-        AppState::Idle => {
-            Line::from(format!(" {}", app.status))
-        }
-        AppState::Error => {
-            Line::from(Span::styled(format!(" {}", app.status), Style::default().fg(Color::Red)))
-        }
+        AppState::Idle => Line::from(format!(" {}", app.status)),
+        AppState::Error => Line::from(Span::styled(
+            format!(" {}", app.status),
+            Style::default().fg(Color::Red),
+        )),
     }
 }
 
@@ -61,7 +60,7 @@ fn wrapped_line_count(text: &str, inner_width: u16) -> usize {
         count += if line.is_empty() {
             1
         } else {
-            (line.len() + w - 1) / w
+            line.len().div_ceil(w)
         };
     }
     count
@@ -80,10 +79,10 @@ pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // status (bordered box)
-            Constraint::Length(1),  // tab labels (no border)
+            Constraint::Length(3), // status (bordered box)
+            Constraint::Length(1), // tab labels (no border)
             Constraint::Min(5),    // content (bordered)
-            Constraint::Length(1),  // help line
+            Constraint::Length(1), // help line
         ])
         .split(f.area());
 
@@ -103,12 +102,28 @@ pub fn draw(f: &mut Frame, app: &App) {
         ActiveTab::Settings => 3,
     };
     let highlight = match app.active_tab {
-        ActiveTab::Writer => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
-        ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
-        ActiveTab::Spec => Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD),
-        ActiveTab::Settings => Style::default().fg(Color::Black).bg(Color::Gray).add_modifier(Modifier::BOLD),
+        ActiveTab::Writer => Style::default()
+            .fg(Color::Black)
+            .bg(Color::Green)
+            .add_modifier(Modifier::BOLD),
+        ActiveTab::Questions => Style::default()
+            .fg(Color::Black)
+            .bg(Color::Blue)
+            .add_modifier(Modifier::BOLD),
+        ActiveTab::Spec => Style::default()
+            .fg(Color::Black)
+            .bg(Color::Red)
+            .add_modifier(Modifier::BOLD),
+        ActiveTab::Settings => Style::default()
+            .fg(Color::Black)
+            .bg(Color::Gray)
+            .add_modifier(Modifier::BOLD),
     };
-    let spec_line_count = app.spec_content.as_ref().map(|c| c.lines().count()).unwrap_or(0);
+    let spec_line_count = app
+        .spec_content
+        .as_ref()
+        .map(|c| c.lines().count())
+        .unwrap_or(0);
     let spec_label = format!(" {} ({}) ", app.integrator.spec_filename(), spec_line_count);
     let titles = vec![
         Line::from(" Writer ").green(),
@@ -155,9 +170,7 @@ pub fn draw(f: &mut Frame, app: &App) {
             ActiveTab::Questions => {
                 " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: navigate | Enter: answer"
             }
-            ActiveTab::Spec => {
-                " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: scroll"
-            }
+            ActiveTab::Spec => " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: scroll",
             ActiveTab::Settings => {
                 if app.settings_save_dialog {
                     " Enter: save | Esc: cancel"
@@ -198,16 +211,12 @@ fn draw_text_input(f: &mut Frame, app: &App, area: Rect) {
         } else {
             "Type your requirements here. Ctrl+S to submit."
         };
-        let placeholder =
-            Paragraph::new(placeholder_text)
-                .style(Style::default().fg(Color::Gray));
+        let placeholder = Paragraph::new(placeholder_text).style(Style::default().fg(Color::Gray));
         f.render_widget(placeholder, inner);
     } else {
-        let (cursor_row, cursor_col) =
-            wrapped_cursor_pos(&app.input, app.cursor_pos, inner_width);
+        let (cursor_row, cursor_col) = wrapped_cursor_pos(&app.input, app.cursor_pos, inner_width);
         let total_lines = wrapped_line_count(&app.input, inner_width);
-        let scroll =
-            center_scroll(cursor_row as usize, inner.height as usize, total_lines) as u16;
+        let scroll = center_scroll(cursor_row as usize, inner.height as usize, total_lines) as u16;
 
         let input = Paragraph::new(app.input.as_str())
             .wrap(Wrap { trim: false })
@@ -230,8 +239,7 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
             .border_style(Style::reset());
         let inner = block.inner(area);
         f.render_widget(block, area);
-        let content = Paragraph::new("  No open questions")
-            .style(Style::default().fg(Color::Gray));
+        let content = Paragraph::new("  No open questions").style(Style::default().fg(Color::Gray));
         f.render_widget(content, inner);
         return;
     }
@@ -287,7 +295,10 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
     let detail_text = if focused.body.is_empty() {
         format!("[{}] {}", display_priority, focused.text)
     } else {
-        format!("[{}] {}\n\n{}", display_priority, focused.text, focused.body)
+        format!(
+            "[{}] {}\n\n{}",
+            display_priority, focused.text, focused.body
+        )
     };
     let detail_block = Block::default()
         .borders(Borders::ALL)
@@ -316,8 +327,9 @@ fn draw_spec(f: &mut Frame, app: &App, area: Rect) {
         None => {
             let inner = block.inner(area);
             f.render_widget(block, area);
-            let placeholder = Paragraph::new("No spec file yet — submit requirements to create one.")
-                .style(Style::default().fg(Color::Gray));
+            let placeholder =
+                Paragraph::new("No spec file yet — submit requirements to create one.")
+                    .style(Style::default().fg(Color::Gray));
             f.render_widget(placeholder, inner);
         }
         Some(content) => {
@@ -391,13 +403,12 @@ fn draw_quit_dialog(f: &mut Frame, area: Rect) {
 
     f.render_widget(Clear, dialog_area);
 
-    let body = Paragraph::new("Integration in progress. Press Ctrl+C again to quit.")
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Confirm Quit ")
-                .padding(Padding::new(1, 0, 1, 0)),
-        );
+    let body = Paragraph::new("Integration in progress. Press Ctrl+C again to quit.").block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Confirm Quit ")
+            .padding(Padding::new(1, 0, 1, 0)),
+    );
     f.render_widget(body, dialog_area);
 }
 
@@ -410,13 +421,12 @@ fn draw_settings_save_dialog(f: &mut Frame, area: Rect) {
 
     f.render_widget(Clear, dialog_area);
 
-    let body = Paragraph::new("Save settings? Restart required for changes to take effect.")
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .title(" Save Settings ")
-                .padding(Padding::new(1, 0, 1, 0)),
-        );
+    let body = Paragraph::new("Save settings? Restart required for changes to take effect.").block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title(" Save Settings ")
+            .padding(Padding::new(1, 0, 1, 0)),
+    );
     f.render_widget(body, dialog_area);
 }
 
@@ -449,20 +459,28 @@ fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
                 .split(inner);
 
             let num_solutions = dialog.question.solutions.len();
-            let mut items: Vec<ListItem> = dialog.question.solutions.iter().enumerate().map(|(i, sol)| {
-                let style = if i == focus {
-                    Style::default().fg(Color::Black).bg(Color::Yellow)
-                } else {
-                    Style::default()
-                };
-                ListItem::new(format!("  {}", sol.title)).style(style)
-            }).collect();
+            let mut items: Vec<ListItem> = dialog
+                .question
+                .solutions
+                .iter()
+                .enumerate()
+                .map(|(i, sol)| {
+                    let style = if i == focus {
+                        Style::default().fg(Color::Black).bg(Color::Yellow)
+                    } else {
+                        Style::default()
+                    };
+                    ListItem::new(format!("  {}", sol.title)).style(style)
+                })
+                .collect();
 
             // "Write custom answer..." as last item
             let custom_style = if focus == num_solutions {
                 Style::default().fg(Color::Black).bg(Color::Yellow)
             } else {
-                Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC)
+                Style::default()
+                    .fg(Color::Gray)
+                    .add_modifier(Modifier::ITALIC)
             };
             items.push(ListItem::new("  Write custom answer...").style(custom_style));
 

@@ -27,8 +27,7 @@ Cargo workspace with two members:
 ## Building & testing
 
 ```
-nix develop --command cargo build --workspace
-nix develop --command cargo test --package specwriter-tui-testdriver
+nix develop --command make check
 ```
 
 ## Development workflow

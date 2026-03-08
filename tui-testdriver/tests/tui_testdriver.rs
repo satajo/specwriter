@@ -121,10 +121,7 @@ async fn running_with_session_expiry_mock(world: &mut SpecwriterWorld) {
 async fn running_with_slow_mock(world: &mut SpecwriterWorld) {
     let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let config = IntegratorConfig {
-        command: bdd_dir
-            .join("mock-claude-slow.sh")
-            .to_string_lossy()
-            .into(),
+        command: bdd_dir.join("mock-claude-slow.sh").to_string_lossy().into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
         ..Default::default()
@@ -136,17 +133,13 @@ async fn running_with_slow_mock(world: &mut SpecwriterWorld) {
 async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
     let bdd_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let config = IntegratorConfig {
-        command: bdd_dir
-            .join("mock-claude-fail.sh")
-            .to_string_lossy()
-            .into(),
+        command: bdd_dir.join("mock-claude-fail.sh").to_string_lossy().into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
         ..Default::default()
     };
     world.start_with_config(config);
 }
-
 
 #[given("the specwriter is running with a silent-fail mock command")]
 async fn running_with_silent_fail_mock(world: &mut SpecwriterWorld) {
@@ -248,9 +241,10 @@ async fn press_tab(world: &mut SpecwriterWorld) {
 
 #[when("I press Shift+Tab")]
 async fn press_shift_tab(world: &mut SpecwriterWorld) {
-    world
-        .runner()
-        .send_key(specwriter::KeyCode::BackTab, specwriter::KeyModifiers::SHIFT);
+    world.runner().send_key(
+        specwriter::KeyCode::BackTab,
+        specwriter::KeyModifiers::SHIFT,
+    );
 }
 
 #[when("I press Enter")]
@@ -294,9 +288,10 @@ async fn press_up_n_times(world: &mut SpecwriterWorld, n: usize) {
 
 #[when("I press Ctrl+C")]
 async fn press_ctrl_c(world: &mut SpecwriterWorld) {
-    world
-        .runner()
-        .send_key(specwriter::KeyCode::Char('c'), specwriter::KeyModifiers::CONTROL);
+    world.runner().send_key(
+        specwriter::KeyCode::Char('c'),
+        specwriter::KeyModifiers::CONTROL,
+    );
 }
 
 #[when("the integrator reports questions from the spec file")]
@@ -429,7 +424,10 @@ async fn spec_file_not_exists(world: &mut SpecwriterWorld) {
 async fn spec_contains(world: &mut SpecwriterWorld, expected: String) {
     let content = read_spec_file(&world.workdir_path());
     assert!(
-        content.as_ref().map(|c| c.contains(&expected)).unwrap_or(false),
+        content
+            .as_ref()
+            .map(|c| c.contains(&expected))
+            .unwrap_or(false),
         "SPEC.md does not contain '{}'",
         expected
     );
@@ -460,9 +458,9 @@ async fn screen_should_not_show(world: &mut SpecwriterWorld, expected: String) {
 #[then(expr = "the detail panel should show {string}")]
 async fn detail_panel_should_show(world: &mut SpecwriterWorld, expected: String) {
     let screen = world.runner().render();
-    let detail_start = screen.find("Details").unwrap_or_else(|| {
-        panic!("Details panel not found on screen:\n{}", screen)
-    });
+    let detail_start = screen
+        .find("Details")
+        .unwrap_or_else(|| panic!("Details panel not found on screen:\n{}", screen));
     let detail_section = &screen[detail_start..];
     assert!(
         detail_section.contains(&expected),
@@ -505,23 +503,29 @@ async fn app_should_not_have_quit(world: &mut SpecwriterWorld) {
 #[then(expr = "{string} should appear before {string} on screen")]
 async fn text_appears_before(world: &mut SpecwriterWorld, first: String, second: String) {
     let screen = world.runner().render();
-    let pos_first = screen.find(&first).unwrap_or_else(|| {
-        panic!("'{}' not found on screen:\n{}", first, screen)
-    });
-    let pos_second = screen.find(&second).unwrap_or_else(|| {
-        panic!("'{}' not found on screen:\n{}", second, screen)
-    });
+    let pos_first = screen
+        .find(&first)
+        .unwrap_or_else(|| panic!("'{}' not found on screen:\n{}", first, screen));
+    let pos_second = screen
+        .find(&second)
+        .unwrap_or_else(|| panic!("'{}' not found on screen:\n{}", second, screen));
     assert!(
         pos_first < pos_second,
         "Expected '{}' before '{}' on screen, but positions are {} vs {}:\n{}",
-        first, second, pos_first, pos_second, screen
+        first,
+        second,
+        pos_first,
+        pos_second,
+        screen
     );
 }
 
 #[then(expr = "the input area should show {string}")]
 async fn input_area_should_show(world: &mut SpecwriterWorld, expected: String) {
     let screen = world.runner().render();
-    let input_start = screen.find("Writer").expect("Writer tab not found on screen");
+    let input_start = screen
+        .find("Writer")
+        .expect("Writer tab not found on screen");
     let input_section = &screen[input_start..];
     assert!(
         input_section.contains(&expected),
@@ -534,7 +538,9 @@ async fn input_area_should_show(world: &mut SpecwriterWorld, expected: String) {
 #[then(expr = "the input area should not show {string}")]
 async fn input_area_should_not_show(world: &mut SpecwriterWorld, expected: String) {
     let screen = world.runner().render();
-    let input_start = screen.find("Writer").expect("Writer tab not found on screen");
+    let input_start = screen
+        .find("Writer")
+        .expect("Writer tab not found on screen");
     let help_start = screen[input_start..]
         .find("Ctrl+C")
         .map(|i| input_start + i)
@@ -636,7 +642,12 @@ fn get_row(world: &mut SpecwriterWorld, row: usize) -> String {
 async fn row_starts_with_status_icon(world: &mut SpecwriterWorld, row: usize, text: String) {
     let line = get_row(world, row);
     // Status icon is a multi-byte unicode char followed by a space
-    let after_icon = line.trim_start().chars().next().map(|c| !c.is_ascii()).unwrap_or(false);
+    let after_icon = line
+        .trim_start()
+        .chars()
+        .next()
+        .map(|c| !c.is_ascii())
+        .unwrap_or(false);
     assert!(
         after_icon,
         "Row {} should start with a status icon, but got: '{}'",
@@ -645,7 +656,9 @@ async fn row_starts_with_status_icon(world: &mut SpecwriterWorld, row: usize, te
     assert!(
         line.contains(&text),
         "Row {} should contain '{}', but got: '{}'",
-        row, text, line
+        row,
+        text,
+        line
     );
 }
 
@@ -655,7 +668,8 @@ async fn row_should_be_blank(world: &mut SpecwriterWorld, row: usize) {
     assert!(
         line.trim().is_empty(),
         "Row {} should be blank, but got: '{}'",
-        row, line
+        row,
+        line
     );
 }
 
@@ -665,7 +679,9 @@ async fn row_starts_with(world: &mut SpecwriterWorld, row: usize, prefix: String
     assert!(
         line.starts_with(&prefix),
         "Row {} should start with '{}', but got: '{}'",
-        row, prefix, line
+        row,
+        prefix,
+        line
     );
 }
 
@@ -680,23 +696,28 @@ async fn row_has_no_box_drawing(world: &mut SpecwriterWorld, row: usize) {
     assert!(
         offending.is_empty(),
         "Row {} should contain no box-drawing characters, but found {:?}: '{}'",
-        row, offending, line
+        row,
+        offending,
+        line
     );
 }
 
-#[then(expr = "row {int} should start with a corner box-drawing character followed by horizontal lines")]
+#[then(
+    expr = "row {int} should start with a corner box-drawing character followed by horizontal lines"
+)]
 async fn row_starts_with_corner_then_horizontal(world: &mut SpecwriterWorld, row: usize) {
     let line = get_row(world, row);
     let mut chars = line.chars();
     let first = chars.next().unwrap_or(' ');
     // Corner characters: ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ╭ ╮ ╯ ╰ etc.
-    let corners = [
-        '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '╭', '╮', '╯', '╰',
-    ];
+    let corners = ['┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '╭', '╮', '╯', '╰'];
     assert!(
         corners.contains(&first),
         "Row {} should start with a corner character, but starts with '{}' (U+{:04X}): '{}'",
-        row, first, first as u32, line
+        row,
+        first,
+        first as u32,
+        line
     );
     let second = chars.next().unwrap_or(' ');
     // Horizontal line characters: ─ ━ ═
@@ -704,7 +725,10 @@ async fn row_starts_with_corner_then_horizontal(world: &mut SpecwriterWorld, row
     assert!(
         horizontals.contains(&second),
         "Row {} second character should be a horizontal line, but got '{}' (U+{:04X}): '{}'",
-        row, second, second as u32, line
+        row,
+        second,
+        second as u32,
+        line
     );
 }
 
@@ -716,14 +740,19 @@ async fn row_starts_with_border_then_text(world: &mut SpecwriterWorld, row: usiz
     assert!(
         verticals.contains(&first),
         "Row {} should start with a vertical border, but starts with '{}' (U+{:04X}): '{}'",
-        row, first, first as u32, line
+        row,
+        first,
+        first as u32,
+        line
     );
     // After the border and a space, the text should follow
     let after_border = line[first.len_utf8()..].trim_start();
     assert!(
         after_border.starts_with(&text),
         "Row {} after border should start with '{}', but got: '{}'",
-        row, text, after_border
+        row,
+        text,
+        after_border
     );
 }
 
@@ -747,11 +776,7 @@ async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
 async fn priority_indicator_bold_red(world: &mut SpecwriterWorld, indicator: String) {
     let runner = world.runner();
     let (color, bold) = runner.text_style_on_screen(&indicator);
-    assert!(
-        bold,
-        "Priority indicator '{}' should be bold",
-        indicator
-    );
+    assert!(bold, "Priority indicator '{}' should be bold", indicator);
     assert!(
         color == "red",
         "Priority indicator '{}' should be red, but got '{}'",

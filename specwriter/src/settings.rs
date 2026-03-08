@@ -35,9 +35,15 @@ impl Settings {
         match std::fs::read_to_string(&path) {
             Ok(content) => match serde_json::from_str::<Settings>(&content) {
                 Ok(settings) => (settings, None),
-                Err(e) => (Self::default(), Some(format!("Error loading settings: {e}"))),
+                Err(e) => (
+                    Self::default(),
+                    Some(format!("Error loading settings: {e}")),
+                ),
             },
-            Err(e) => (Self::default(), Some(format!("Error reading settings: {e}"))),
+            Err(e) => (
+                Self::default(),
+                Some(format!("Error reading settings: {e}")),
+            ),
         }
     }
 
@@ -55,7 +61,7 @@ impl Settings {
     pub fn default_config_dir() -> PathBuf {
         if let Ok(xdg) = std::env::var("XDG_CONFIG_HOME") {
             PathBuf::from(xdg).join("specwriter")
-        } else if let Some(home) = std::env::var("HOME").ok() {
+        } else if let Ok(home) = std::env::var("HOME") {
             PathBuf::from(home).join(".config").join("specwriter")
         } else {
             PathBuf::from(".config").join("specwriter")
@@ -107,9 +113,21 @@ impl Settings {
     /// Set a text field value from the editor
     pub fn set_value(&mut self, index: usize, value: String) {
         match index {
-            0 => self.claude_command = if value.is_empty() { "claude".into() } else { value },
+            0 => {
+                self.claude_command = if value.is_empty() {
+                    "claude".into()
+                } else {
+                    value
+                }
+            }
             1 => self.model = if value.is_empty() { None } else { Some(value) },
-            2 => self.spec_filename = if value.is_empty() { "SPEC.md".into() } else { value },
+            2 => {
+                self.spec_filename = if value.is_empty() {
+                    "SPEC.md".into()
+                } else {
+                    value
+                }
+            }
             _ => {}
         }
     }
