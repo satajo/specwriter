@@ -1,6 +1,6 @@
 use ratatui::{prelude::*, widgets::*};
 
-use crate::{ActiveTab, App, AppState};
+use crate::{ActiveTab, AnswerMode, App, AppState};
 
 const DOT_TICKS_PER_FRAME: u64 = 1;
 
@@ -118,8 +118,19 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Help line
     let help_text = if app.quit_dialog {
         " Ctrl+C: confirm quit | Esc: cancel"
-    } else if app.answer_dialog.is_some() {
-        " Ctrl+S: submit | Esc: cancel | Enter: newline"
+    } else if let Some(ref dialog) = app.answer_dialog {
+        match dialog.mode {
+            AnswerMode::SelectSolution { .. } => {
+                " Enter: select | \u{2191}\u{2193}: navigate | Esc: cancel"
+            }
+            AnswerMode::WriteCustom => {
+                if dialog.question.solutions.is_empty() {
+                    " Ctrl+S: submit | Esc: cancel | Enter: newline"
+                } else {
+                    " Ctrl+S: submit | Esc: back | Enter: newline"
+                }
+            }
+        }
     } else {
         match app.active_tab {
             ActiveTab::Writer => {
@@ -309,36 +320,70 @@ fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
 
     f.render_widget(Clear, dialog_area);
 
-    let inner_width = dialog_area.width.saturating_sub(3);
-    let inner_height = dialog_area.height.saturating_sub(2);
-
     let title = format!(" Answer Q{}: {} ", dialog.question.id, dialog.question.text);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .title(title)
-        .padding(Padding::left(1));
 
-    if dialog.input.is_empty() {
-        let placeholder = Paragraph::new("Type your answer here. Ctrl+S to submit.")
-            .style(Style::default().fg(Color::Gray))
-            .block(block);
-        f.render_widget(placeholder, dialog_area);
-    } else {
-        let (cursor_row, cursor_col) =
-            wrapped_cursor_pos(&dialog.input, dialog.cursor_pos, inner_width);
-        let total_lines = wrapped_line_count(&dialog.input, inner_width);
-        let scroll =
-            center_scroll(cursor_row as usize, inner_height as usize, total_lines) as u16;
+    match dialog.mode {
+        AnswerMode::SelectSolution { focus } => {
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .padding(Padding::left(1));
+            let inner = block.inner(dialog_area);
+            f.render_widget(block, dialog_area);
 
-        let input = Paragraph::new(dialog.input.as_str())
-            .block(block)
-            .wrap(Wrap { trim: false })
-            .scroll((scroll, 0));
-        f.render_widget(input, dialog_area);
+            let num_solutions = dialog.question.solutions.len();
+            let mut items: Vec<ListItem> = dialog.question.solutions.iter().enumerate().map(|(i, sol)| {
+                let style = if i == focus {
+                    Style::default().fg(Color::Black).bg(Color::Yellow)
+                } else {
+                    Style::default()
+                };
+                ListItem::new(format!("  {}", sol.title)).style(style)
+            }).collect();
 
-        f.set_cursor_position(Position::new(
-            dialog_area.x + 2 + cursor_col,
-            dialog_area.y + 1 + cursor_row - scroll,
-        ));
+            // "Write custom answer..." as last item
+            let custom_style = if focus == num_solutions {
+                Style::default().fg(Color::Black).bg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC)
+            };
+            items.push(ListItem::new("  Write custom answer...").style(custom_style));
+
+            let list = List::new(items);
+            f.render_widget(list, inner);
+        }
+        AnswerMode::WriteCustom => {
+            let inner_width = dialog_area.width.saturating_sub(3);
+            let inner_height = dialog_area.height.saturating_sub(2);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .title(title)
+                .padding(Padding::left(1));
+
+            if dialog.input.is_empty() {
+                let placeholder = Paragraph::new("Type your answer here. Ctrl+S to submit.")
+                    .style(Style::default().fg(Color::Gray))
+                    .block(block);
+                f.render_widget(placeholder, dialog_area);
+            } else {
+                let (cursor_row, cursor_col) =
+                    wrapped_cursor_pos(&dialog.input, dialog.cursor_pos, inner_width);
+                let total_lines = wrapped_line_count(&dialog.input, inner_width);
+                let scroll =
+                    center_scroll(cursor_row as usize, inner_height as usize, total_lines) as u16;
+
+                let input = Paragraph::new(dialog.input.as_str())
+                    .block(block)
+                    .wrap(Wrap { trim: false })
+                    .scroll((scroll, 0));
+                f.render_widget(input, dialog_area);
+
+                f.set_cursor_position(Position::new(
+                    dialog_area.x + 2 + cursor_col,
+                    dialog_area.y + 1 + cursor_row - scroll,
+                ));
+            }
+        }
     }
 }

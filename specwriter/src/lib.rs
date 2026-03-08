@@ -22,11 +22,18 @@ pub enum ActiveTab {
     Spec,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub enum AnswerMode {
+    SelectSolution { focus: usize },
+    WriteCustom,
+}
+
 #[derive(Debug)]
 pub struct AnswerDialog {
     pub question: Question,
     pub input: String,
     pub cursor_pos: usize,
+    pub mode: AnswerMode,
 }
 
 #[derive(Debug)]
@@ -317,10 +324,16 @@ impl App {
             KeyCode::Enter => {
                 if !self.questions.is_empty() {
                     let q = self.questions[self.question_focus].clone();
+                    let mode = if q.solutions.is_empty() {
+                        AnswerMode::WriteCustom
+                    } else {
+                        AnswerMode::SelectSolution { focus: 0 }
+                    };
                     self.answer_dialog = Some(AnswerDialog {
                         question: q,
                         input: String::new(),
                         cursor_pos: 0,
+                        mode,
                     });
                 }
             }
@@ -348,11 +361,76 @@ impl App {
     }
 
     fn handle_answer_dialog_key(&mut self, key: KeyEvent) {
+        let mode = self.answer_dialog.as_ref().unwrap().mode.clone();
+        match mode {
+            AnswerMode::SelectSolution { focus } => {
+                self.handle_solution_select_key(key, focus);
+            }
+            AnswerMode::WriteCustom => {
+                self.handle_write_custom_key(key);
+            }
+        }
+    }
+
+    fn handle_solution_select_key(&mut self, key: KeyEvent, focus: usize) {
+        let num_solutions = self.answer_dialog.as_ref().unwrap().question.solutions.len();
+        // Last item (index == num_solutions) is "Write custom answer"
+        let max_focus = num_solutions;
+        match key.code {
+            KeyCode::Esc => {
+                self.answer_dialog = None;
+            }
+            KeyCode::Up => {
+                if focus > 0 {
+                    if let Some(ref mut d) = self.answer_dialog {
+                        d.mode = AnswerMode::SelectSolution { focus: focus - 1 };
+                    }
+                }
+            }
+            KeyCode::Down => {
+                if focus < max_focus {
+                    if let Some(ref mut d) = self.answer_dialog {
+                        d.mode = AnswerMode::SelectSolution { focus: focus + 1 };
+                    }
+                }
+            }
+            KeyCode::Enter => {
+                if focus < num_solutions {
+                    // Select this solution
+                    let solution_title = self.answer_dialog.as_ref().unwrap()
+                        .question.solutions[focus].title.clone();
+                    if let Some(ref mut d) = self.answer_dialog {
+                        d.input = solution_title;
+                    }
+                    self.submit_answer();
+                } else {
+                    // "Write custom answer"
+                    if let Some(ref mut d) = self.answer_dialog {
+                        d.mode = AnswerMode::WriteCustom;
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_write_custom_key(&mut self, key: KeyEvent) {
         match key {
             KeyEvent {
                 code: KeyCode::Esc, ..
             } => {
-                self.answer_dialog = None;
+                let has_solutions = self.answer_dialog.as_ref()
+                    .map(|d| !d.question.solutions.is_empty())
+                    .unwrap_or(false);
+                if has_solutions {
+                    if let Some(ref mut d) = self.answer_dialog {
+                        d.mode = AnswerMode::SelectSolution { focus: 0 };
+                        d.input.clear();
+                        d.cursor_pos = 0;
+                    }
+                } else {
+                    self.answer_dialog = None;
+                }
             }
             KeyEvent {
                 code: KeyCode::Char('s'),

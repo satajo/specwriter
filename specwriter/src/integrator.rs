@@ -10,11 +10,18 @@ pub enum IntegratorMessage {
 }
 
 #[derive(Debug, Clone)]
+pub struct Solution {
+    pub title: String,
+    pub body: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct Question {
     pub id: usize,
     pub text: String,
     pub body: String,
     pub priority: u8,
+    pub solutions: Vec<Solution>,
 }
 
 #[derive(Debug, Clone)]
@@ -177,6 +184,15 @@ where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
+For each question, you may optionally include suggested solutions as #### sub-headings:
+
+#### Solution title
+
+Brief rationale or description of this option.
+
+Include 2-4 suggested solutions when you can identify concrete options. Omit them when the question
+is too open-ended for meaningful suggestions.
+
 Do NOT output questions to stdout — place them in {sf} only.
 
 User message:
@@ -214,6 +230,15 @@ Place clarifying questions at the END of {sf} under a `## Questions` heading. Ea
 where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer. The title gives a scannable summary; the body elaborates as needed.
 
 Assign sequential IDs starting from 1. Be aggressive about generating questions — there should always be at least a few open questions after each integration. A spec with zero questions is a sign you aren't doing your job: every spec has unexplored dimensions, unstated assumptions, or areas that could benefit from clarification. Questions are the primary mechanism for driving the conversation forward. Each question should be self-contained — understandable without cross-referencing.
+
+For each question, you may optionally include suggested solutions as #### sub-headings:
+
+#### Solution title
+
+Brief rationale or description of this option.
+
+Include 2-4 suggested solutions when you can identify concrete options. Omit them when the question
+is too open-ended for meaningful suggestions.
 
 Do NOT output questions to stdout — place them in {sf} only.
 
@@ -343,6 +368,8 @@ fn parse_questions_from_content(content: &str, questions: &mut Vec<Question>) {
     let mut in_questions_section = false;
     let mut current_question: Option<Question> = None;
     let mut body_lines: Vec<String> = Vec::new();
+    let mut current_solution: Option<Solution> = None;
+    let mut solution_body_lines: Vec<String> = Vec::new();
 
     for line in content.lines() {
         let trimmed = line.trim();
@@ -357,20 +384,57 @@ fn parse_questions_from_content(content: &str, questions: &mut Vec<Question>) {
             continue;
         }
         if let Some(q) = parse_question_heading(trimmed) {
+            // Flush current solution into previous question
+            if let Some(mut sol) = current_solution.take() {
+                sol.body = solution_body_lines.join("\n").trim().to_string();
+                if let Some(ref mut prev) = current_question {
+                    prev.solutions.push(sol);
+                }
+                solution_body_lines.clear();
+            }
             // Flush previous question
             if let Some(mut prev) = current_question.take() {
-                prev.body = body_lines.join("\n").trim().to_string();
+                if prev.solutions.is_empty() {
+                    prev.body = body_lines.join("\n").trim().to_string();
+                }
                 questions.push(prev);
             }
             body_lines.clear();
             current_question = Some(q);
+        } else if trimmed.starts_with("#### ") && current_question.is_some() {
+            // Flush previous solution
+            if let Some(mut sol) = current_solution.take() {
+                sol.body = solution_body_lines.join("\n").trim().to_string();
+                if let Some(ref mut q) = current_question {
+                    q.solutions.push(sol);
+                }
+                solution_body_lines.clear();
+            } else {
+                // First solution — finalize question body from lines collected so far
+                if let Some(ref mut q) = current_question {
+                    q.body = body_lines.join("\n").trim().to_string();
+                }
+            }
+            let title = trimmed.strip_prefix("#### ").unwrap().trim().to_string();
+            current_solution = Some(Solution { title, body: String::new() });
+        } else if current_solution.is_some() {
+            solution_body_lines.push(line.to_string());
         } else if current_question.is_some() {
             body_lines.push(line.to_string());
         }
     }
+    // Flush last solution
+    if let Some(mut sol) = current_solution.take() {
+        sol.body = solution_body_lines.join("\n").trim().to_string();
+        if let Some(ref mut q) = current_question {
+            q.solutions.push(sol);
+        }
+    }
     // Flush last question
     if let Some(mut q) = current_question.take() {
-        q.body = body_lines.join("\n").trim().to_string();
+        if q.solutions.is_empty() {
+            q.body = body_lines.join("\n").trim().to_string();
+        }
         questions.push(q);
     }
 }
@@ -396,5 +460,5 @@ fn parse_question_heading(line: &str) -> Option<Question> {
     if text.is_empty() {
         return None;
     }
-    Some(Question { id, text, body: String::new(), priority })
+    Some(Question { id, text, body: String::new(), priority, solutions: Vec::new() })
 }
