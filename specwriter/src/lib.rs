@@ -396,11 +396,16 @@ impl App {
             }
             KeyCode::Enter => {
                 if focus < num_solutions {
-                    // Select this solution
-                    let solution_title = self.answer_dialog.as_ref().unwrap()
-                        .question.solutions[focus].title.clone();
+                    // Select this solution (include title and body)
+                    let sol = &self.answer_dialog.as_ref().unwrap()
+                        .question.solutions[focus];
+                    let answer = if sol.body.is_empty() {
+                        sol.title.clone()
+                    } else {
+                        format!("{}: {}", sol.title, sol.body)
+                    };
                     if let Some(ref mut d) = self.answer_dialog {
-                        d.input = solution_title;
+                        d.input = answer;
                     }
                     self.submit_answer();
                 } else {

@@ -60,6 +60,20 @@ Feature: Suggested Solutions
     Then the screen should show "PostgreSQL"
     And the screen should show "SQLite"
 
+  Scenario: Solution body visible in detail pane
+    When I switch to the questions tab
+    And I press Enter
+    Then the screen should show "Robust and reliable."
+
+  Scenario: Detail pane updates on navigation
+    When I switch to the questions tab
+    And I press Enter
+    Then the screen should show "Robust and reliable."
+    And the screen should not show "Lightweight and embedded."
+    When I press Down
+    Then the screen should show "Lightweight and embedded."
+    And the screen should not show "Robust and reliable."
+
   Scenario: Help line in solution selection mode
     When I switch to the questions tab
     And I press Enter

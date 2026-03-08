@@ -318,7 +318,9 @@ fn draw_quit_dialog(f: &mut Frame, area: Rect) {
 
 fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
     let dialog_width = area.width.saturating_sub(10).min(70);
-    let dialog_height = 10u16.min(area.height.saturating_sub(6));
+    let is_solution_mode = matches!(dialog.mode, AnswerMode::SelectSolution { .. });
+    let max_height = if is_solution_mode { 20u16 } else { 10u16 };
+    let dialog_height = max_height.min(area.height.saturating_sub(6));
     let x = area.x + (area.width.saturating_sub(dialog_width)) / 2;
     let y = area.y + (area.height.saturating_sub(dialog_height)) / 2;
     let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
@@ -335,6 +337,12 @@ fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
                 .padding(Padding::left(1));
             let inner = block.inner(dialog_area);
             f.render_widget(block, dialog_area);
+
+            // Split inner area 40/60 for list/detail
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+                .split(inner);
 
             let num_solutions = dialog.question.solutions.len();
             let mut items: Vec<ListItem> = dialog.question.solutions.iter().enumerate().map(|(i, sol)| {
@@ -355,7 +363,27 @@ fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
             items.push(ListItem::new("  Write custom answer...").style(custom_style));
 
             let list = List::new(items);
-            f.render_widget(list, inner);
+            f.render_widget(list, chunks[0]);
+
+            // Detail pane showing focused solution body
+            let detail_block = Block::default()
+                .borders(Borders::ALL)
+                .title(" Details ")
+                .padding(Padding::horizontal(1));
+            let detail_inner = detail_block.inner(chunks[1]);
+
+            if focus < num_solutions {
+                let body = &dialog.question.solutions[focus].body;
+                let total_lines = wrapped_line_count(body, detail_inner.width);
+                let scroll = center_scroll(0, detail_inner.height as usize, total_lines) as u16;
+                let detail = Paragraph::new(body.as_str())
+                    .wrap(Wrap { trim: false })
+                    .scroll((scroll, 0))
+                    .block(detail_block);
+                f.render_widget(detail, chunks[1]);
+            } else {
+                f.render_widget(detail_block, chunks[1]);
+            }
         }
         AnswerMode::WriteCustom => {
             let inner_width = dialog_area.width.saturating_sub(3);
