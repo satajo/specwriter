@@ -2,8 +2,9 @@ pub mod integrator;
 pub mod ui;
 
 pub use crossterm::event::{KeyCode, KeyModifiers};
-use crossterm::event::{KeyEvent};
+use crossterm::event::KeyEvent;
 use ratatui::{backend::TestBackend, style::Color, Terminal};
+use std::collections::HashSet;
 use tokio::sync::mpsc;
 
 use integrator::{IntegratorConfig, IntegratorHandle, IntegratorMessage, Question};
@@ -54,6 +55,9 @@ pub struct App {
     pub quit_dialog: bool,
     pub spec_content: Option<String>,
     pub spec_scroll: u16,
+    /// Question IDs that were answered locally but whose answers haven't been
+    /// fully integrated yet. QuestionsUpdated messages must not reintroduce these.
+    suppressed_answers: HashSet<usize>,
 }
 
 impl App {
@@ -75,6 +79,7 @@ impl App {
             quit_dialog: false,
             spec_content: None,
             spec_scroll: 0,
+            suppressed_answers: HashSet::new(),
         }
     }
 
@@ -128,8 +133,10 @@ impl App {
                 "The answer to question Q{} ({}) is: {}",
                 dialog.question.id, dialog.question.text, text
             );
-            // Immediately remove the answered question from the UI
+            // Immediately remove the answered question from the UI and suppress
+            // it from being reintroduced by a concurrent QuestionsUpdated message.
             let answered_id = dialog.question.id;
+            self.suppressed_answers.insert(answered_id);
             self.questions.retain(|q| q.id != answered_id);
             if !self.questions.is_empty() && self.question_focus >= self.questions.len() {
                 self.question_focus = self.questions.len() - 1;
@@ -143,6 +150,11 @@ impl App {
     pub fn update_from_integrator(&mut self, msg: IntegratorMessage) {
         match msg {
             IntegratorMessage::QuestionsUpdated(q) => {
+                // Filter out questions that were answered locally but not yet integrated
+                let q: Vec<Question> = q
+                    .into_iter()
+                    .filter(|q| !self.suppressed_answers.contains(&q.id))
+                    .collect();
                 // Preserve focus by question ID
                 let focused_id = self.questions.get(self.question_focus).map(|q| q.id);
                 let old_focus = self.question_focus;
@@ -166,6 +178,7 @@ impl App {
                 self.state = AppState::Idle;
                 self.status = "Idle.".into();
                 self.quit_dialog = false;
+                self.suppressed_answers.clear();
                 // Refresh spec content
                 let spec_path = self.integrator.spec_path();
                 self.spec_content = if spec_path.exists() {

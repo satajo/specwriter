@@ -1,5 +1,5 @@
 use cucumber::{given, then, when, World};
-use specwriter::integrator::IntegratorConfig;
+use specwriter::integrator::{IntegratorConfig, IntegratorMessage};
 use specwriter::AppRunner;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -280,6 +280,16 @@ async fn press_ctrl_c(world: &mut SpecwriterWorld) {
     world
         .runner()
         .send_key(specwriter::KeyCode::Char('c'), specwriter::KeyModifiers::CONTROL);
+}
+
+#[when("the integrator reports questions from the spec file")]
+async fn integrator_reports_questions_from_spec(world: &mut SpecwriterWorld) {
+    let spec_path = world.workdir_path().join("SPEC.md");
+    let questions = specwriter::integrator::scan_questions(&spec_path);
+    world
+        .runner()
+        .app
+        .update_from_integrator(IntegratorMessage::QuestionsUpdated(questions));
 }
 
 #[when("I press Esc")]
