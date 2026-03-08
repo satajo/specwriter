@@ -802,14 +802,14 @@ impl AppRunner {
         self.app.tick();
     }
 
-    /// Scan row 0 for the most prominent non-default foreground color.
+    /// Scan row 1 for the most prominent non-default foreground color.
     pub fn status_line_color_name(&mut self) -> String {
         self.terminal
             .draw(|f| ui::draw(f, &self.app))
             .unwrap();
         let buf = self.terminal.backend().buffer().clone();
         for x in 0..buf.area.width {
-            let cell = &buf[(x, 0)];
+            let cell = &buf[(x, 1)];
             if cell.symbol().trim().is_empty() {
                 continue;
             }
@@ -823,7 +823,7 @@ impl AppRunner {
         "none".into()
     }
 
-    /// Get a snapshot of row 0 content for animation comparison.
+    /// Get a snapshot of row 1 content for animation comparison.
     pub fn status_indicator_snapshot(&mut self) -> String {
         self.terminal
             .draw(|f| ui::draw(f, &self.app))
@@ -831,7 +831,7 @@ impl AppRunner {
         let buf = self.terminal.backend().buffer().clone();
         let mut s = String::new();
         for x in 0..buf.area.width {
-            let cell = &buf[(x, 0)];
+            let cell = &buf[(x, 1)];
             s.push_str(cell.symbol());
         }
         s.trim_end().to_string()

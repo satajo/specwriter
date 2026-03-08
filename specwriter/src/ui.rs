@@ -71,16 +71,19 @@ pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1),  // status
-            Constraint::Length(1),  // spacing
+            Constraint::Length(3),  // status (bordered box)
             Constraint::Length(1),  // tab labels (no border)
             Constraint::Min(5),    // content (bordered)
             Constraint::Length(1),  // help line
         ])
         .split(f.area());
 
-    // Status line
-    f.render_widget(Paragraph::new(status_line(app)), chunks[0]);
+    // Status line in bordered box
+    let status_block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::reset());
+    let status = Paragraph::new(status_line(app)).block(status_block);
+    f.render_widget(status, chunks[0]);
 
     // Tab labels — no block, no borders
     let q_count = app.questions.len();
@@ -106,13 +109,13 @@ pub fn draw(f: &mut Frame, app: &App) {
         .highlight_style(highlight)
         .padding("", "")
         .divider("");
-    f.render_widget(tabs, chunks[2]);
+    f.render_widget(tabs, chunks[1]);
 
     // Content area with bordered block
     match app.active_tab {
-        ActiveTab::Writer => draw_text_input(f, app, chunks[3]),
-        ActiveTab::Questions => draw_questions(f, app, chunks[3]),
-        ActiveTab::Spec => draw_spec(f, app, chunks[3]),
+        ActiveTab::Writer => draw_text_input(f, app, chunks[2]),
+        ActiveTab::Questions => draw_questions(f, app, chunks[2]),
+        ActiveTab::Spec => draw_spec(f, app, chunks[2]),
     }
 
     // Help line
@@ -145,7 +148,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         }
     };
     let help = Paragraph::new(help_text);
-    f.render_widget(help, chunks[4]);
+    f.render_widget(help, chunks[3]);
 
     // Dialog overlays
     if app.quit_dialog {

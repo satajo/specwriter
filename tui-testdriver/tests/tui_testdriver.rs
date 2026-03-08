@@ -656,10 +656,10 @@ async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
         specwriter::ActiveTab::Questions => "Open questions",
         specwriter::ActiveTab::Spec => "SPEC.md",
     };
-    // Tab labels are on row index 2 (row 3, zero-indexed)
+    // Tab labels are on row index 3 (row 4, zero-indexed)
     assert!(
-        world.runner().has_bold_text_on_row(2, tab_name),
-        "Active tab '{}' should be bold on row 3",
+        world.runner().has_bold_text_on_row(3, tab_name),
+        "Active tab '{}' should be bold on row 4",
         tab_name
     );
 }
