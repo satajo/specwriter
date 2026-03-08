@@ -385,6 +385,17 @@ async fn settings_file_should_contain(world: &mut SpecwriterWorld, expected: Str
     );
 }
 
+#[then("the settings file should not exist")]
+async fn settings_file_should_not_exist(world: &mut SpecwriterWorld) {
+    let config_dir = world.config_dir_path();
+    let path = config_dir.join("settings.json");
+    assert!(
+        !path.exists(),
+        "Settings file should NOT exist at {:?}, but it does",
+        path
+    );
+}
+
 #[given(expr = "a settings file with claude command {string}")]
 async fn settings_file_with_command(world: &mut SpecwriterWorld, command: String) {
     let config_dir = world.config_dir_path();

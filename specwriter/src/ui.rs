@@ -97,7 +97,7 @@ pub fn draw(f: &mut Frame, app: &App) {
         ActiveTab::Writer => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
         ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
         ActiveTab::Spec => Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD),
-        ActiveTab::Settings => Style::default().fg(Color::Black).bg(Color::DarkGray).add_modifier(Modifier::BOLD),
+        ActiveTab::Settings => Style::default().fg(Color::Black).bg(Color::Gray).add_modifier(Modifier::BOLD),
     };
     let spec_line_count = app.spec_content.as_ref().map(|c| c.lines().count()).unwrap_or(0);
     let spec_label = format!(" {} ({}) ", app.integrator.spec_filename(), spec_line_count);
@@ -150,10 +150,12 @@ pub fn draw(f: &mut Frame, app: &App) {
                 " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: scroll"
             }
             ActiveTab::Settings => {
-                if app.settings_editing.is_some() {
-                    " Esc: confirm | type to edit"
+                if app.settings_save_dialog {
+                    " Enter: save | Esc: cancel"
+                } else if app.settings_editing.is_some() {
+                    " Enter: confirm | Esc: cancel | type to edit"
                 } else {
-                    " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: navigate | Enter: edit/toggle | Esc: confirm"
+                    " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: navigate | Enter: edit/toggle | Ctrl+S: save"
                 }
             }
         }
@@ -164,6 +166,8 @@ pub fn draw(f: &mut Frame, app: &App) {
     // Dialog overlays
     if app.quit_dialog {
         draw_quit_dialog(f, f.area());
+    } else if app.settings_save_dialog {
+        draw_settings_save_dialog(f, f.area());
     } else if let Some(ref dialog) = app.answer_dialog {
         draw_answer_dialog(f, dialog, f.area());
     }
@@ -378,6 +382,25 @@ fn draw_quit_dialog(f: &mut Frame, area: Rect) {
             Block::default()
                 .borders(Borders::ALL)
                 .title(" Confirm Quit ")
+                .padding(Padding::new(1, 0, 1, 0)),
+        );
+    f.render_widget(body, dialog_area);
+}
+
+fn draw_settings_save_dialog(f: &mut Frame, area: Rect) {
+    let dialog_width = 60u16.min(area.width.saturating_sub(10));
+    let dialog_height = 5u16.min(area.height.saturating_sub(6));
+    let x = area.x + (area.width.saturating_sub(dialog_width)) / 2;
+    let y = area.y + (area.height.saturating_sub(dialog_height)) / 2;
+    let dialog_area = Rect::new(x, y, dialog_width, dialog_height);
+
+    f.render_widget(Clear, dialog_area);
+
+    let body = Paragraph::new("Save settings? Restart required for changes to take effect.")
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(" Save Settings ")
                 .padding(Padding::new(1, 0, 1, 0)),
         );
     f.render_widget(body, dialog_area);

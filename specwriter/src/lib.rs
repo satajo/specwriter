@@ -45,6 +45,7 @@ pub struct AnswerDialog {
 pub struct SettingsEditState {
     pub buffer: String,
     pub cursor_pos: usize,
+    pub pre_edit_value: String,
 }
 
 #[derive(Debug)]
@@ -68,6 +69,7 @@ pub struct App {
     pub settings: Settings,
     pub settings_focus: usize,
     pub settings_editing: Option<SettingsEditState>,
+    pub settings_save_dialog: bool,
     pub config_dir: PathBuf,
     /// Question IDs that were answered locally but whose answers haven't been
     /// fully integrated yet. QuestionsUpdated messages must not reintroduce these.
@@ -96,6 +98,7 @@ impl App {
             settings: Settings::default(),
             settings_focus: 0,
             settings_editing: None,
+            settings_save_dialog: false,
             config_dir: Settings::default_config_dir(),
             suppressed_answers: HashSet::new(),
         }
@@ -252,8 +255,8 @@ impl App {
             return;
         }
 
-        // Tab switching (global) — but not while editing a settings field
-        if self.settings_editing.is_none() {
+        // Tab switching (global) — but not while editing a settings field or in save dialog
+        if self.settings_editing.is_none() && !self.settings_save_dialog {
             if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
                 self.active_tab = match self.active_tab {
                     ActiveTab::Writer => ActiveTab::Questions,
@@ -397,14 +400,35 @@ impl App {
     }
 
     fn handle_settings_key(&mut self, key: KeyEvent) {
+        // Save confirmation dialog modal
+        if self.settings_save_dialog {
+            match key.code {
+                KeyCode::Enter => {
+                    let _ = self.settings.save_to(&self.config_dir);
+                    self.settings_save_dialog = false;
+                }
+                KeyCode::Esc => {
+                    self.settings_save_dialog = false;
+                }
+                _ => {}
+            }
+            return;
+        }
+
         if let Some(ref mut edit) = self.settings_editing {
             // Currently editing a text field
             match key {
-                KeyEvent { code: KeyCode::Esc, .. } => {
+                KeyEvent { code: KeyCode::Enter, modifiers: KeyModifiers::NONE, .. } => {
+                    // Confirm: accept edit value
                     let value = edit.buffer.clone();
                     self.settings.set_value(self.settings_focus, value);
                     self.settings_editing = None;
-                    let _ = self.settings.save_to(&self.config_dir);
+                }
+                KeyEvent { code: KeyCode::Esc, .. } => {
+                    // Cancel: revert to pre-edit value
+                    let original = edit.pre_edit_value.clone();
+                    self.settings.set_value(self.settings_focus, original);
+                    self.settings_editing = None;
                 }
                 KeyEvent { code: KeyCode::Backspace, .. } => {
                     if edit.cursor_pos > 0 {
@@ -450,30 +474,33 @@ impl App {
             return;
         }
 
-        // Not editing
-        match key.code {
-            KeyCode::Down => {
+        // Not editing — navigation mode
+        match key {
+            KeyEvent { code: KeyCode::Down, .. } => {
                 if self.settings_focus < Settings::COUNT - 1 {
                     self.settings_focus += 1;
                 }
             }
-            KeyCode::Up => {
+            KeyEvent { code: KeyCode::Up, .. } => {
                 if self.settings_focus > 0 {
                     self.settings_focus -= 1;
                 }
             }
-            KeyCode::Enter => {
+            KeyEvent { code: KeyCode::Enter, .. } => {
                 if Settings::is_boolean(self.settings_focus) {
                     self.settings.toggle(self.settings_focus);
-                    let _ = self.settings.save_to(&self.config_dir);
                 } else {
                     let value = self.settings.edit_value(self.settings_focus);
                     let cursor_pos = value.len();
                     self.settings_editing = Some(SettingsEditState {
-                        buffer: value,
+                        buffer: value.clone(),
                         cursor_pos,
+                        pre_edit_value: value,
                     });
                 }
+            }
+            KeyEvent { code: KeyCode::Char('s'), modifiers: KeyModifiers::CONTROL, .. } => {
+                self.settings_save_dialog = true;
             }
             _ => {}
         }
