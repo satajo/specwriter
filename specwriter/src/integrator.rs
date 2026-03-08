@@ -111,131 +111,152 @@ impl IntegratorHandle {
     }
 }
 
+/// Format messages as a numbered list, regardless of batch size.
+fn format_messages(messages: &[String]) -> String {
+    messages
+        .iter()
+        .enumerate()
+        .map(|(i, msg)| format!("Message {}:\n{}", i + 1, msg))
+        .collect::<Vec<_>>()
+        .join("\n\n")
+}
+
 async fn integrator_loop(
     mut rx: mpsc::UnboundedReceiver<String>,
     ui_tx: mpsc::UnboundedSender<IntegratorMessage>,
     config: IntegratorConfig,
 ) {
     let spec_file = config.spec_path();
-    // Session ID for CLI session reuse across integrations
     let mut session_id = Uuid::new_v4().to_string();
-
-    // Main integration loop
     let mut first_call = true;
+    // Buffer for messages that arrived during command execution
+    let mut pending: Vec<String> = Vec::new();
+
     loop {
-        let msg = match rx.recv().await {
-            Some(m) => m,
-            None => return,
-        };
-        let mut queue = vec![msg];
+        // Wait for at least one message (from pending buffer or channel)
+        if pending.is_empty() {
+            match rx.recv().await {
+                Some(m) => pending.push(m),
+                None => return,
+            }
+        }
 
-        // Brief window to collect rapid submissions before processing starts
-        tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
+        // Drain any immediately available messages
         while let Ok(msg) = rx.try_recv() {
-            queue.push(msg);
+            pending.push(msg);
         }
 
-        // Process each message one at a time
-        let mut i = 0;
-        let mut errored = false;
-        while i < queue.len() {
-            // Drain any messages that arrived since last iteration
-            while let Ok(msg) = rx.try_recv() {
-                queue.push(msg);
-            }
+        // Take the entire batch
+        let batch: Vec<String> = pending.drain(..).collect();
+        let _ = ui_tx.send(IntegratorMessage::StatusUpdate("Integrating".into()));
 
-            let waiting = queue.len() - i - 1;
-            let status = if waiting > 0 {
-                format!("Integrating ({} in queue)", waiting)
-            } else {
-                "Integrating".into()
-            };
-            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
+        let message = format_messages(&batch);
+        let spec_is_empty = !spec_file.exists()
+            || std::fs::read_to_string(&spec_file)
+                .map(|s| s.trim().is_empty())
+                .unwrap_or(true);
 
-            let spec_is_empty = !spec_file.exists()
-                || std::fs::read_to_string(&spec_file)
-                    .map(|s| s.trim().is_empty())
-                    .unwrap_or(true);
-            let message = &queue[i];
+        let sf = &config.spec_filename;
+        let prompt = if !spec_is_empty {
+            IntegratePrompt { sf, message: &message }.to_string()
+        } else {
+            CreateSpecPrompt { sf, message: &message }.to_string()
+        };
 
-            let sf = &config.spec_filename;
-            let prompt = if !spec_is_empty {
-                IntegratePrompt { sf, message }.to_string()
-            } else {
-                CreateSpecPrompt { sf, message }.to_string()
-            };
+        let extra_args: Vec<String> = if first_call {
+            vec!["--session-id".to_string(), session_id.clone()]
+        } else {
+            vec!["--resume".to_string(), session_id.clone()]
+        };
 
-            // Build session args for CLI session reuse
-            let extra_args: Vec<String> = if first_call {
-                vec!["--session-id".to_string(), session_id.clone()]
-            } else {
-                vec!["--resume".to_string(), session_id.clone()]
-            };
+        // Run command while monitoring for new submissions
+        let command_future = run_command(&config, &extra_args, &prompt);
+        tokio::pin!(command_future);
 
-            // Run command while monitoring for new submissions
-            let command_future = run_command(&config, &extra_args, &prompt);
-            tokio::pin!(command_future);
-
-            let result = loop {
-                tokio::select! {
-                    result = &mut command_future => break result,
-                    msg = rx.recv() => {
-                        if let Some(msg) = msg {
-                            queue.push(msg);
-                            let waiting = queue.len() - i - 1;
-                            let status = format!("Integrating ({} in queue)", waiting);
-                            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
-                        }
+        let result = loop {
+            tokio::select! {
+                result = &mut command_future => break result,
+                msg = rx.recv() => {
+                    if let Some(msg) = msg {
+                        pending.push(msg);
+                        let status = format!("Integrating ({} in queue)", pending.len());
+                        let _ = ui_tx.send(IntegratorMessage::StatusUpdate(status));
                     }
                 }
-            };
+            }
+        };
 
-            match result {
-                Ok(_) => {
-                    first_call = false;
-                    let questions = scan_questions(&spec_file);
-                    let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
+        match result {
+            Ok(_) => {
+                first_call = false;
+                let questions = scan_questions(&spec_file);
+                let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
+
+                // Drain any last-moment arrivals
+                while let Ok(msg) = rx.try_recv() {
+                    pending.push(msg);
                 }
-                Err(e) => {
-                    // If this was a --resume call, try recovering with a fresh session
-                    if !first_call {
-                        session_id = Uuid::new_v4().to_string();
-                        first_call = true;
-                        let fresh_args = vec![
-                            "--session-id".to_string(),
-                            session_id.clone(),
-                        ];
-                        let retry = run_command(&config, &fresh_args, &prompt).await;
-                        match retry {
-                            Ok(_) => {
-                                first_call = false;
-                                let questions = scan_questions(&spec_file);
-                                let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
-                            }
-                            Err(e2) => {
-                                while let Ok(_) = rx.try_recv() {}
-                                let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
-                                    format!("Error! {e2}"),
-                                ));
-                                errored = true;
-                                break;
-                            }
-                        }
+
+                if pending.is_empty() {
+                    let _ = ui_tx.send(IntegratorMessage::IntegrationComplete);
+                }
+            }
+            Err(e) => {
+                if !first_call {
+                    // Retry with a fresh session, including any new messages
+                    session_id = Uuid::new_v4().to_string();
+                    first_call = true;
+
+                    while let Ok(msg) = rx.try_recv() {
+                        pending.push(msg);
+                    }
+
+                    // Rebuild batch: original messages + new arrivals
+                    let mut retry_messages = batch;
+                    retry_messages.append(&mut pending);
+
+                    let retry_message = format_messages(&retry_messages);
+                    let retry_prompt = if !spec_is_empty {
+                        IntegratePrompt { sf, message: &retry_message }.to_string()
                     } else {
-                        // First call failed — no recovery possible
-                        while let Ok(_) = rx.try_recv() {}
-                        let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error! {e}")));
-                        errored = true;
-                        break;
+                        CreateSpecPrompt { sf, message: &retry_message }.to_string()
+                    };
+
+                    let fresh_args = vec![
+                        "--session-id".to_string(),
+                        session_id.clone(),
+                    ];
+                    let retry = run_command(&config, &fresh_args, &retry_prompt).await;
+                    match retry {
+                        Ok(_) => {
+                            first_call = false;
+                            let questions = scan_questions(&spec_file);
+                            let _ = ui_tx.send(IntegratorMessage::QuestionsUpdated(questions));
+
+                            while let Ok(msg) = rx.try_recv() {
+                                pending.push(msg);
+                            }
+
+                            if pending.is_empty() {
+                                let _ = ui_tx.send(IntegratorMessage::IntegrationComplete);
+                            }
+                        }
+                        Err(e2) => {
+                            // Double failure: drain and discard everything
+                            while let Ok(_) = rx.try_recv() {}
+                            pending.clear();
+                            let _ = ui_tx.send(IntegratorMessage::StatusUpdate(
+                                format!("Error! {e2}"),
+                            ));
+                        }
                     }
+                } else {
+                    // First call failed — no recovery possible
+                    while let Ok(_) = rx.try_recv() {}
+                    pending.clear();
+                    let _ = ui_tx.send(IntegratorMessage::StatusUpdate(format!("Error! {e}")));
                 }
             }
-
-            i += 1;
-        }
-
-        if !errored {
-            let _ = ui_tx.send(IntegratorMessage::IntegrationComplete);
         }
     }
 }
