@@ -84,7 +84,7 @@ impl App {
         config: IntegratorConfig,
     ) -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
-        let spec_path = config.working_dir.join("SPEC.md");
+        let spec_path = config.spec_path();
         let initial_questions = integrator::scan_questions(&spec_path);
         let spec_content = if spec_path.exists() {
             Some(std::fs::read_to_string(&spec_path).unwrap_or_default())
@@ -160,7 +160,7 @@ impl App {
                 self.status = "Idle.".into();
                 self.quit_dialog = false;
                 // Refresh spec content
-                let spec_path = self.integrator.working_dir().join("SPEC.md");
+                let spec_path = self.integrator.spec_path();
                 self.spec_content = if spec_path.exists() {
                     Some(std::fs::read_to_string(&spec_path).unwrap_or_default())
                 } else {
@@ -220,6 +220,14 @@ impl App {
                 ActiveTab::Writer => ActiveTab::Questions,
                 ActiveTab::Questions => ActiveTab::Spec,
                 ActiveTab::Spec => ActiveTab::Writer,
+            };
+            return;
+        }
+        if key.code == KeyCode::BackTab {
+            self.active_tab = match self.active_tab {
+                ActiveTab::Writer => ActiveTab::Spec,
+                ActiveTab::Spec => ActiveTab::Questions,
+                ActiveTab::Questions => ActiveTab::Writer,
             };
             return;
         }

@@ -28,6 +28,21 @@ Feature: Tabbed UI
     And I press Tab
     Then the screen should show "Ctrl+S"
 
+  Scenario: Shift+Tab cycles backward to spec tab
+    When I press Shift+Tab
+    Then the screen should show "scroll"
+
+  Scenario: Shift+Tab cycles from spec to questions
+    When I press Shift+Tab
+    And I press Shift+Tab
+    Then the screen should show "navigate"
+
+  Scenario: Shift+Tab cycles all the way back to writer
+    When I press Shift+Tab
+    And I press Shift+Tab
+    And I press Shift+Tab
+    Then the screen should show "Ctrl+S"
+
   Scenario: Questions tab shows question count in tab name
     Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p7): First?\n\nBody.\n\n### Q2 (p5): Second?\n\nBody."
     And the specwriter is running with a mock command

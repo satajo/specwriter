@@ -22,6 +22,7 @@ pub struct IntegratorConfig {
     pub command: String,
     pub args: Vec<String>,
     pub working_dir: PathBuf,
+    pub spec_filename: String,
 }
 
 impl Default for IntegratorConfig {
@@ -31,18 +32,25 @@ impl Default for IntegratorConfig {
             command: "claude".into(),
             args: Vec::new(),
             working_dir,
+            spec_filename: "SPEC.md".into(),
         }
     }
 }
 
 impl IntegratorConfig {
+    pub fn spec_path(&self) -> PathBuf {
+        self.working_dir.join(&self.spec_filename)
+    }
+}
+
+impl IntegratorConfig {
     /// Build CLI args with properly scoped tool permissions.
-    /// Read is scoped to the working directory, Edit/Write only to SPEC.md.
+    /// Read is scoped to the working directory, Edit/Write only to the spec file.
     pub fn build_args(&self) -> Vec<String> {
         let mut args = vec![
             "--print".into(),
             "--allowedTools".into(),
-            "Read,Edit(SPEC.md),Write(SPEC.md)".into(),
+            format!("Read,Edit({}),Write({})", self.spec_filename, self.spec_filename),
         ];
         args.extend(self.args.iter().cloned());
         args
@@ -53,6 +61,7 @@ impl IntegratorConfig {
 pub struct IntegratorHandle {
     tx: mpsc::UnboundedSender<String>,
     working_dir: PathBuf,
+    spec_filename: String,
 }
 
 impl IntegratorHandle {
@@ -62,16 +71,21 @@ impl IntegratorHandle {
     ) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
         let working_dir = config.working_dir.clone();
+        let spec_filename = config.spec_filename.clone();
         tokio::spawn(integrator_loop(rx, ui_tx, config));
-        Self { tx, working_dir }
+        Self { tx, working_dir, spec_filename }
     }
 
     pub fn send(&self, message: String) {
         let _ = self.tx.send(message);
     }
 
-    pub fn working_dir(&self) -> &Path {
-        &self.working_dir
+    pub fn spec_path(&self) -> PathBuf {
+        self.working_dir.join(&self.spec_filename)
+    }
+
+    pub fn spec_filename(&self) -> &str {
+        &self.spec_filename
     }
 }
 
@@ -80,7 +94,7 @@ async fn integrator_loop(
     ui_tx: mpsc::UnboundedSender<IntegratorMessage>,
     config: IntegratorConfig,
 ) {
-    let spec_file = config.working_dir.join("SPEC.md");
+    let spec_file = config.spec_path();
     // Session ID for CLI session reuse across integrations
     let mut session_id = Uuid::new_v4().to_string();
 
@@ -122,13 +136,15 @@ async fn integrator_loop(
                     .unwrap_or(true);
             let message = &queue[i];
 
+            let sf = &config.spec_filename;
             let prompt = if !spec_is_empty {
                 format!(
-                    r#"You are a requirements integrator managing a spec in SPEC.md.
+                    r#"You are a requirements integrator managing a spec in {sf}.
 
-Read SPEC.md to orient yourself, then integrate the following user message.
+Read {sf} to orient yourself, then integrate the following user message.
 
 RULES:
+- Stay focused on what the user has written about. Do not speculatively expand the spec into adjacent areas or broaden scope unprompted. The spec covers only the topics the user has expressed.
 - Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
 - You are integrating a thought-stream of requirements into a cohesive spec, not writing a technical spec.
 - Preserve the user's intent and language where possible.
@@ -136,7 +152,7 @@ RULES:
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
 SPEC STRUCTURE:
-- The entire spec lives in a single SPEC.md file
+- The entire spec lives in a single {sf} file
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
 - Limit line lengths to approximately 120 characters for terminal readability
@@ -145,7 +161,7 @@ CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
 
 QUESTIONS:
-Place clarifying questions at the END of SPEC.md under a `## Questions` heading. Each question is a ### subheading:
+Place clarifying questions at the END of {sf} under a `## Questions` heading. Each question is a ### subheading:
 
 ### Q<number> (p<priority>): <short title>
 
@@ -161,7 +177,7 @@ where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
-Do NOT output questions to stdout — place them in SPEC.md only.
+Do NOT output questions to stdout — place them in {sf} only.
 
 User message:
 
@@ -169,9 +185,10 @@ User message:
                 )
             } else {
                 format!(
-                    r#"You are a requirements integrator. Create a new spec in SPEC.md based on the following user message.
+                    r#"You are a requirements integrator. Create a new spec in {sf} based on the following user message.
 
 RULES:
+- Stay focused on what the user has written about. Do not speculatively expand the spec into adjacent areas or broaden scope unprompted. The spec covers only the topics the user has expressed.
 - Match the user's level of abstraction. User input can arrive at any level of detail — from high-flying project goals and product vision down to specific technical choices and implementation details. Appropriately integrate all of these levels, preserving each at the abstraction the user expressed it. Don't translate high-level ideas into implementation details, nor generalize specific technical decisions into vague principles.
 - You are integrating a thought-stream of requirements into a cohesive spec, not writing a technical spec.
 - Preserve the user's intent and language where possible.
@@ -179,7 +196,7 @@ RULES:
 - Integrate autonomously — do not ask the user to approve the output. If something is wrong, the user will submit corrective input.
 
 SPEC STRUCTURE:
-- Write everything to a single SPEC.md file
+- Write everything to a single {sf} file
 - Use prose and lists only — no diagrams, tables, or non-textual content
 - Stick to basic Markdown — headings, paragraphs, lists, bold/italic, links
 - Limit line lengths to approximately 120 characters for terminal readability
@@ -188,7 +205,7 @@ CODEBASE CONTEXT:
 You have read access to the project where this tool is running. Gather whatever codebase context you need to make sense of the user's requirements — look at relevant files, understand the domain, terminology, and existing structure. Do this autonomously without requiring user guidance.
 
 QUESTIONS:
-Place clarifying questions at the END of SPEC.md under a `## Questions` heading. Each question is a ### subheading:
+Place clarifying questions at the END of {sf} under a `## Questions` heading. Each question is a ### subheading:
 
 ### Q<number> (p<priority>): <short title>
 
@@ -198,7 +215,7 @@ where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how
 
 Assign sequential IDs starting from 1. Be aggressive about generating questions — there should always be at least a few open questions after each integration. A spec with zero questions is a sign you aren't doing your job: every spec has unexplored dimensions, unstated assumptions, or areas that could benefit from clarification. Questions are the primary mechanism for driving the conversation forward. Each question should be self-contained — understandable without cross-referencing.
 
-Do NOT output questions to stdout — place them in SPEC.md only.
+Do NOT output questions to stdout — place them in {sf} only.
 
 User message:
 

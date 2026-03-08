@@ -54,6 +54,7 @@ async fn running_with_mock(world: &mut SpecwriterWorld) {
         command: bdd_dir.join("mock-claude.sh").to_string_lossy().into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -68,6 +69,7 @@ async fn running_with_no_questions_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -78,6 +80,7 @@ async fn running_with_command(world: &mut SpecwriterWorld, command: String) {
         command,
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -92,6 +95,7 @@ async fn running_with_session_expiry_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -106,6 +110,7 @@ async fn running_with_slow_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -120,6 +125,7 @@ async fn running_with_failing_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -135,6 +141,7 @@ async fn running_with_silent_fail_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -149,6 +156,7 @@ async fn running_with_nine_questions_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -163,6 +171,7 @@ async fn running_with_prioritized_mock(world: &mut SpecwriterWorld) {
             .into(),
         args: Vec::new(),
         working_dir: world.workdir_path(),
+        ..Default::default()
     };
     world.start_with_config(config);
 }
@@ -218,6 +227,13 @@ async fn press_tab(world: &mut SpecwriterWorld) {
     world
         .runner()
         .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
+}
+
+#[when("I press Shift+Tab")]
+async fn press_shift_tab(world: &mut SpecwriterWorld) {
+    world
+        .runner()
+        .send_key(specwriter::KeyCode::BackTab, specwriter::KeyModifiers::SHIFT);
 }
 
 #[when("I press Enter")]

@@ -94,10 +94,8 @@ pub fn draw(f: &mut Frame, app: &App) {
         ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
         ActiveTab::Spec => Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD),
     };
-    let spec_label = match &app.spec_content {
-        Some(content) => format!(" SPEC.md ({}) ", content.lines().count()),
-        None => " No spec ".into(),
-    };
+    let spec_line_count = app.spec_content.as_ref().map(|c| c.lines().count()).unwrap_or(0);
+    let spec_label = format!(" {} ({}) ", app.integrator.spec_filename(), spec_line_count);
     let titles = vec![
         Line::from(" Writer ").green(),
         Line::from(format!(" Open questions ({}) ", q_count)).blue(),

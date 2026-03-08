@@ -7,8 +7,8 @@ Feature: Spec viewer tab
     Given a clean working directory
     And the specwriter is running with a mock command
 
-  Scenario: Spec tab is visible on startup
-    Then the screen should show "No spec"
+  Scenario: Spec tab always shows filename with line count
+    Then the screen should show "SPEC.md (0)"
 
   Scenario: Tab cycles through all three tabs
     When I press Tab
@@ -29,8 +29,7 @@ Feature: Spec viewer tab
     Then the screen should show "SPEC.md (0)"
 
   Scenario: Missing spec file shows placeholder message
-    When I press Tab
-    And I press Tab
+    When I switch to the spec tab
     Then the screen should show "No spec file yet"
 
   Scenario: Spec tab displays raw file content
@@ -67,4 +66,3 @@ Feature: Spec viewer tab
     And I press Ctrl+S
     And I wait for integration to complete
     Then the screen should show "SPEC.md ("
-    And the screen should not show "No spec"
