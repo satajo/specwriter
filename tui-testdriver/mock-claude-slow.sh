@@ -21,6 +21,6 @@ fi
 echo "$PROMPT" | grep -qi "search" && echo "search" >> "$SPEC"
 echo "$PROMPT" | grep -qi "filter" && echo "filtering" >> "$SPEC"
 
-printf '\n## Questions\n\n### Q1 (p5): What are the requirements?\n\nPlease elaborate.\n' >> "$SPEC"
+printf '\n## Questions\n\n### Q1 (p3): What are the requirements?\n\nPlease elaborate.\n' >> "$SPEC"
 
 echo "I have integrated the requirements."

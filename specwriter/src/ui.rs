@@ -67,6 +67,15 @@ fn wrapped_line_count(text: &str, inner_width: u16) -> usize {
     count
 }
 
+/// Return the style for a priority indicator based on its level.
+fn priority_style_for(priority: u8) -> Style {
+    match priority {
+        5 => Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+        4 => Style::default().fg(Color::Yellow),
+        _ => Style::default(),
+    }
+}
+
 pub fn draw(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -250,13 +259,23 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
         .skip(list_scroll)
         .take(list_inner_height)
         .map(|(i, q)| {
-            let line = format!("  Q{} (p{}). {}", q.id, q.priority, q.text);
-            let style = if i == app.question_focus {
+            let display_priority = q.priority.min(5);
+            let priority_text = format!("  [{}] ", display_priority);
+            let priority_style = if i == app.question_focus {
+                Style::default().fg(Color::Black).bg(Color::Yellow)
+            } else {
+                priority_style_for(display_priority)
+            };
+            let title_style = if i == app.question_focus {
                 Style::default().fg(Color::Black).bg(Color::Yellow)
             } else {
                 Style::default()
             };
-            ListItem::new(line).style(style)
+            let line = Line::from(vec![
+                Span::styled(priority_text, priority_style),
+                Span::styled(q.text.clone(), title_style),
+            ]);
+            ListItem::new(line)
         })
         .collect();
     let list = List::new(items);
@@ -264,16 +283,11 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
 
     // Detail box
     let focused = &app.questions[app.question_focus];
+    let display_priority = focused.priority.min(5);
     let detail_text = if focused.body.is_empty() {
-        format!(
-            "Q{} (p{}): {}",
-            focused.id, focused.priority, focused.text
-        )
+        format!("[{}] {}", display_priority, focused.text)
     } else {
-        format!(
-            "Q{} (p{}): {}\n\n{}",
-            focused.id, focused.priority, focused.text, focused.body
-        )
+        format!("[{}] {}\n\n{}", display_priority, focused.text, focused.body)
     };
     let detail_block = Block::default()
         .borders(Borders::ALL)
@@ -417,7 +431,7 @@ fn draw_answer_dialog(f: &mut Frame, dialog: &crate::AnswerDialog, area: Rect) {
 
     f.render_widget(Clear, dialog_area);
 
-    let title = format!(" Answer Q{}: {} ", dialog.question.id, dialog.question.text);
+    let title = format!(" Answer: {} ", dialog.question.text);
 
     match dialog.mode {
         AnswerMode::SelectSolution { focus } => {

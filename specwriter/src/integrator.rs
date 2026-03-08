@@ -429,5 +429,7 @@ fn parse_question_heading(line: &str) -> Option<Question> {
     if text.is_empty() {
         return None;
     }
+    // Clamp priority to 1-5 range for display; values > 5 from legacy specs map to 5
+    let priority = priority.min(5).max(1);
     Some(Question { id, text, body: String::new(), priority, solutions: Vec::new() })
 }

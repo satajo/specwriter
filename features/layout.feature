@@ -34,8 +34,8 @@ Feature: Screen Layout
     And the screen should show "No open questions"
 
   Scenario: Questions tab with questions shows two separate bordered boxes
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth?\n\nHow?\n\n### Q2 (p5): Platform?\n\nWhich?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): Auth?\n\nHow?\n\n### Q2 (p3): Platform?\n\nWhich?"
     And the specwriter is running with a mock command
     When I switch to the questions tab
-    Then the screen should show "Q1 (p8)"
-    And the screen should show "Q2 (p5)"
+    Then the screen should show "[5] Auth?"
+    And the screen should show "[3] Platform?"

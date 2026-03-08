@@ -7,64 +7,64 @@ Feature: Question Generation
     Given a clean working directory
     And the specwriter is running with a mock command
 
-  Scenario: Integration produces questions with unique identifiers
+  Scenario: Integration produces questions
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
+    Then the screen should show "[5] What are the authentication"
     And the screen should not show "No open questions"
 
-  Scenario: Questions retain identifiers across integrations
+  Scenario: Questions retain across integrations
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
+    Then the screen should show "[5] What are the authentication"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
     When I switch to the text input tab
     And I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
+    Then the screen should show "[5] What are the authentication"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
 
-  Scenario: New questions get identifiers continuing from the highest existing
+  Scenario: New questions appear when old ones are removed
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
+    Then the screen should show "[5] What are the authentication"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
     When I switch to the text input tab
     And I type "Users need to search for products"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q4 (p5)."
-    And the screen should not show "Q3 (p4)."
+    Then the screen should show "[3] What search fields"
+    And the screen should not show "[2] What is the target"
 
   Scenario: Answered questions are removed while unrelated questions persist
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
+    Then the screen should show "[5] What are the authentication"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
     When I switch to the text input tab
     And I type "We will use OAuth2 for authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should not show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
-    And the screen should show "Q4 (p7)."
+    Then the screen should not show "authentication requirements"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
+    And the screen should show "[4] What OAuth providers"
 
   Scenario: Questions are placed under a Questions heading in spec files
     When I type "The app needs user authentication"
@@ -89,13 +89,13 @@ Feature: Question Generation
     And I wait for integration to complete
     And I switch to the questions tab
     And I press Down
-    Then the detail panel should show "Q2 (p6)"
+    Then the detail panel should show "[3] Should there be role-based"
     When I switch to the text input tab
     And I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the detail panel should show "Q2 (p6)"
+    Then the detail panel should show "[3] Should there be role-based"
 
   Scenario: Focus falls back after focused question is removed by integration
     When I type "The app needs user authentication"
@@ -104,29 +104,29 @@ Feature: Question Generation
     And I switch to the questions tab
     And I press Down
     And I press Down
-    Then the detail panel should show "Q3 (p4)"
+    Then the detail panel should show "[2] What is the target"
     When I switch to the text input tab
     And I type "Users need to search for products"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should not show "Q3 (p4)."
-    And the detail panel should show "Q4 (p5)"
+    Then the screen should not show "What is the target"
+    And the detail panel should show "[3] What search fields"
 
   Scenario: Pool unchanged when input produces no new questions
     When I type "The app needs user authentication"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
+    Then the screen should show "[5] What are the authentication"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
     When I switch to the text input tab
     And I type "Add a dashboard"
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p8)."
-    And the screen should show "Q2 (p6)."
-    And the screen should show "Q3 (p4)."
+    Then the screen should show "[5] What are the authentication"
+    And the screen should show "[3] Should there be role"
+    And the screen should show "[2] What is the target"
     And the screen should show "What are the authentication requirements?"

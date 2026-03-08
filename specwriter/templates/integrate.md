@@ -26,7 +26,14 @@ Place clarifying questions at the END of {{ sf }} under a `## Questions` heading
 
 <question body as prose>
 
-where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer. The title gives a scannable summary; the body elaborates as needed.
+where priority is 1-5:
+- 5 = critical/blocking
+- 4 = important
+- 3 = moderate
+- 2 = minor
+- 1 = nice-to-know
+
+Priority is based on two factors: how critical it is that this specific question gets answered, and how much new information about the spec would be gained from an answer. The title gives a scannable summary; the body elaborates as needed.
 
 - Keep questions that are still relevant and unanswered (preserve their IDs and update priority as context evolves)
 - Remove questions that have been answered or are no longer relevant
@@ -36,14 +43,14 @@ where priority is 1-9 (1 = low, 9 = high). Priority is based on two factors: how
 - Each question should be self-contained — understandable without cross-referencing
 - If input contradicts existing spec content, integrate it and optionally raise a clarifying question
 
-For each question, you may optionally include suggested solutions as #### sub-headings:
+You have deep knowledge of the codebase and domain — use it to propose 2-4 concrete suggestions for each
+question. Only omit suggestions when a question is truly open-ended with no identifiable options.
+
+Format each suggestion as a #### sub-heading:
 
 #### Solution title
 
 Brief rationale or description of this option.
-
-Include 2-4 suggested solutions when you can identify concrete options. Omit them when the question
-is too open-ended for meaningful suggestions.
 
 Do NOT output questions to stdout — place them in {{ sf }} only.
 

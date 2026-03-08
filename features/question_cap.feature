@@ -12,5 +12,5 @@ Feature: Question Pool Has No Artificial Cap
     And I press Ctrl+S
     And I wait for integration to complete
     And I switch to the questions tab
-    Then the screen should show "Q1 (p9)."
-    And the screen should show "Q9 (p1)."
+    Then the screen should show "[5] Q one?"
+    And the screen should show "[1] Q nine?"

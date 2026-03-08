@@ -5,7 +5,7 @@ Feature: Suggested Solutions
 
   Background:
     Given a clean working directory
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): What database?\n\nThe app needs storage.\n\n#### PostgreSQL\n\nRobust and reliable.\n\n#### SQLite\n\nLightweight and embedded.\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): What database?\n\nThe app needs storage.\n\n#### PostgreSQL\n\nRobust and reliable.\n\n#### SQLite\n\nLightweight and embedded.\n\n### Q2 (p3): Target platform?\n\nWeb, mobile, or desktop?"
     And the specwriter is running with a mock command
 
   Scenario: Enter on question with solutions shows solution list
@@ -48,7 +48,7 @@ Feature: Suggested Solutions
     Then the screen should show "PostgreSQL"
     When I press Esc
     Then the screen should not show "PostgreSQL"
-    And the screen should not show "Answer Q1"
+    And the screen should not show "Answer:"
 
   Scenario: Esc from custom input returns to solution list
     When I switch to the questions tab

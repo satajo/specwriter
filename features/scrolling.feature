@@ -9,8 +9,8 @@ Feature: Scrolling
     And the specwriter is running with a mock command
     When I switch to the questions tab
     And I press Down 15 times
-    Then the question list should show "Q16"
-    And the detail panel should show "Q16"
+    Then the question list should show "Question number 16"
+    And the detail panel should show "Question number 16"
 
   Scenario: Question list scrolls back up
     Given a clean working directory
@@ -19,5 +19,5 @@ Feature: Scrolling
     When I switch to the questions tab
     And I press Down 15 times
     And I press Up 15 times
-    Then the question list should show "Q1"
-    And the detail panel should show "Q1"
+    Then the question list should show "Question number 1"
+    And the detail panel should show "Question number 1"

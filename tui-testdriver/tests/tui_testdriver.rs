@@ -502,21 +502,19 @@ async fn app_should_not_have_quit(world: &mut SpecwriterWorld) {
     );
 }
 
-#[then(expr = "question {string} should appear before {string} on screen")]
-async fn question_appears_before(world: &mut SpecwriterWorld, first: String, second: String) {
+#[then(expr = "{string} should appear before {string} on screen")]
+async fn text_appears_before(world: &mut SpecwriterWorld, first: String, second: String) {
     let screen = world.runner().render();
-    let first_q = format!("{} (p", first);
-    let second_q = format!("{} (p", second);
-    let pos_first = screen.find(&first_q).unwrap_or_else(|| {
-        panic!("'{}' not found on screen:\n{}", first_q, screen)
+    let pos_first = screen.find(&first).unwrap_or_else(|| {
+        panic!("'{}' not found on screen:\n{}", first, screen)
     });
-    let pos_second = screen.find(&second_q).unwrap_or_else(|| {
-        panic!("'{}' not found on screen:\n{}", second_q, screen)
+    let pos_second = screen.find(&second).unwrap_or_else(|| {
+        panic!("'{}' not found on screen:\n{}", second, screen)
     });
     assert!(
         pos_first < pos_second,
         "Expected '{}' before '{}' on screen, but positions are {} vs {}:\n{}",
-        first_q, second_q, pos_first, pos_second, screen
+        first, second, pos_first, pos_second, screen
     );
 }
 
@@ -742,6 +740,52 @@ async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
         world.runner().has_bold_text_on_row(3, tab_name),
         "Active tab '{}' should be bold on row 4",
         tab_name
+    );
+}
+
+#[then(expr = "the priority indicator {string} should be bold red")]
+async fn priority_indicator_bold_red(world: &mut SpecwriterWorld, indicator: String) {
+    let runner = world.runner();
+    let (color, bold) = runner.text_style_on_screen(&indicator);
+    assert!(
+        bold,
+        "Priority indicator '{}' should be bold",
+        indicator
+    );
+    assert!(
+        color == "red",
+        "Priority indicator '{}' should be red, but got '{}'",
+        indicator,
+        color
+    );
+}
+
+#[then(expr = "the priority indicator {string} should be yellow")]
+async fn priority_indicator_yellow(world: &mut SpecwriterWorld, indicator: String) {
+    let runner = world.runner();
+    let (color, _bold) = runner.text_style_on_screen(&indicator);
+    assert!(
+        color == "yellow",
+        "Priority indicator '{}' should be yellow, but got '{}'",
+        indicator,
+        color
+    );
+}
+
+#[then(expr = "the priority indicator {string} should be in default color")]
+async fn priority_indicator_default_color(world: &mut SpecwriterWorld, indicator: String) {
+    let runner = world.runner();
+    let (color, bold) = runner.text_style_on_screen(&indicator);
+    assert!(
+        !bold,
+        "Priority indicator '{}' should not be bold",
+        indicator
+    );
+    assert!(
+        color == "default" || color == "white",
+        "Priority indicator '{}' should be in default color, but got '{}'",
+        indicator,
+        color
     );
 }
 

@@ -46,12 +46,12 @@ Feature: Tabbed UI
     Then the screen should show "Ctrl+S"
 
   Scenario: Questions tab shows question count in tab name
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p7): First?\n\nBody.\n\n### Q2 (p5): Second?\n\nBody."
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p4): First?\n\nBody.\n\n### Q2 (p3): Second?\n\nBody."
     And the specwriter is running with a mock command
     Then the screen should show "Open questions (2)"
 
   Scenario: Focused question details are shown in the detail panel
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Target platform?\n\nWeb, mobile, or desktop?"
     And the specwriter is running with a mock command
     When I switch to the questions tab
     Then the screen should show "Details"
@@ -59,9 +59,9 @@ Feature: Tabbed UI
     And the detail panel should show "How should users authenticate?"
 
   Scenario: Arrow keys change which question details are shown
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Target platform?\n\nWeb, mobile, or desktop?"
     And the specwriter is running with a mock command
     When I switch to the questions tab
-    Then the detail panel should show "Q1 (p8): Auth requirements?"
+    Then the detail panel should show "[5] Auth requirements?"
     When I press Down
-    Then the detail panel should show "Q2 (p5): Target platform?"
+    Then the detail panel should show "[3] Target platform?"

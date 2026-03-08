@@ -25,13 +25,13 @@ echo "$PROMPT" | grep -qi "filter" && echo "filtering" >> "$SPEC"
 printf '\n## Questions\n\n' >> "$SPEC"
 if echo "$PROMPT" | grep -qi "OAuth"; then
     # Answered Q1 (auth question), keep Q2, Q3, add Q4
-    printf '### Q2 (p6): Should there be role-based access?\n\nDo different users need different permissions?\n\n### Q3 (p4): What is the target platform?\n\nWeb, mobile, or desktop?\n\n### Q4 (p7): What OAuth providers should be supported?\n\nGoogle, GitHub, etc.?\n' >> "$SPEC"
+    printf '### Q2 (p3): Should there be role-based access?\n\nDo different users need different permissions?\n\n### Q3 (p2): What is the target platform?\n\nWeb, mobile, or desktop?\n\n### Q4 (p4): What OAuth providers should be supported?\n\nGoogle, GitHub, etc.?\n' >> "$SPEC"
 elif echo "$PROMPT" | grep -qi "search"; then
     # Keep Q1, Q2, remove Q3, add Q4
-    printf '### Q1 (p8): What are the authentication requirements?\n\nHow should users authenticate?\n\n### Q2 (p6): Should there be role-based access?\n\nDo different users need different permissions?\n\n### Q4 (p5): What search fields are needed?\n\nWhich fields should be searchable?\n' >> "$SPEC"
+    printf '### Q1 (p5): What are the authentication requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Should there be role-based access?\n\nDo different users need different permissions?\n\n### Q4 (p3): What search fields are needed?\n\nWhich fields should be searchable?\n' >> "$SPEC"
 else
     # Default: Q1, Q2, Q3
-    printf '### Q1 (p8): What are the authentication requirements?\n\nHow should users authenticate?\n\n### Q2 (p6): Should there be role-based access?\n\nDo different users need different permissions?\n\n### Q3 (p4): What is the target platform?\n\nWeb, mobile, or desktop?\n' >> "$SPEC"
+    printf '### Q1 (p5): What are the authentication requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Should there be role-based access?\n\nDo different users need different permissions?\n\n### Q3 (p2): What is the target platform?\n\nWeb, mobile, or desktop?\n' >> "$SPEC"
 fi
 
 echo "I have integrated the requirements."

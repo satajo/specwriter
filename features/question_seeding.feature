@@ -7,11 +7,11 @@ Feature: Startup with Existing Spec
     Given a clean working directory
 
   Scenario: Starting with an existing spec displays its questions
-    Given SPEC.md already contains "# My App\n\nA web application.\n\n## Questions\n\n### Q1 (p7): What is the primary user persona?\n\nDescribe the target user.\n\n### Q2 (p5): Are there performance requirements?\n\nAny latency or throughput targets?"
+    Given SPEC.md already contains "# My App\n\nA web application.\n\n## Questions\n\n### Q1 (p4): What is the primary user persona?\n\nDescribe the target user.\n\n### Q2 (p3): Are there performance requirements?\n\nAny latency or throughput targets?"
     And the specwriter is running with a mock command
     And I switch to the questions tab
-    Then the screen should show "Q1 (p7)."
-    And the screen should show "Q2 (p5)."
+    Then the screen should show "[4] What is the primary user persona?"
+    And the screen should show "[3] Are there performance requirements?"
     And the screen should not show "No open questions"
 
   Scenario: Starting without an existing spec shows no questions

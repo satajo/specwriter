@@ -5,7 +5,7 @@ Feature: Answered question suppression
 
   Background:
     Given a clean working directory
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Target platform?\n\nWeb, mobile, or desktop?"
     And the specwriter is running with a slow mock command
 
   Scenario: Answered question does not reappear when integration refreshes questions
@@ -13,7 +13,7 @@ Feature: Answered question suppression
     And I press Enter
     And I type "OAuth2"
     And I press Ctrl+S
-    Then the screen should not show "Q1 (p8)"
+    Then the screen should not show "Auth requirements?"
     When the integrator reports questions from the spec file
-    Then the screen should not show "Q1 (p8)"
-    And the screen should show "Q2 (p5)"
+    Then the screen should not show "Auth requirements?"
+    And the screen should show "[3] Target platform?"

@@ -5,20 +5,20 @@ Feature: Answer Dialog
 
   Background:
     Given a clean working directory
-    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p8): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p5): Target platform?\n\nWeb, mobile, or desktop?"
+    Given SPEC.md already contains "# App\n\n## Questions\n\n### Q1 (p5): Auth requirements?\n\nHow should users authenticate?\n\n### Q2 (p3): Target platform?\n\nWeb, mobile, or desktop?"
     And the specwriter is running with a mock command
 
   Scenario: Enter opens answer dialog for focused question
     When I switch to the questions tab
     And I press Enter
-    Then the screen should show "Answer Q1"
+    Then the screen should show "Answer: Auth requirements?"
 
   Scenario: Esc cancels answer dialog
     When I switch to the questions tab
     And I press Enter
     And I type "some text"
     And I press Esc
-    Then the screen should not show "Answer Q1"
+    Then the screen should not show "Answer:"
 
   Scenario: Submitting answer triggers integration
     When I switch to the questions tab
@@ -30,12 +30,12 @@ Feature: Answer Dialog
 
   Scenario: Answered question is immediately removed from the list
     When I switch to the questions tab
-    Then the screen should show "Q1 (p8)"
+    Then the screen should show "[5] Auth requirements?"
     When I press Enter
     And I type "OAuth2"
     And I press Ctrl+S
-    Then the screen should not show "Q1 (p8)"
-    And the screen should show "Q2 (p5)"
+    Then the screen should not show "Auth requirements?"
+    And the screen should show "[3] Target platform?"
 
   Scenario: Answer dialog shows placeholder text when empty
     When I switch to the questions tab
@@ -52,20 +52,20 @@ Feature: Answer Dialog
     When I switch to the questions tab
     And I press Enter
     And I press Ctrl+S
-    Then the screen should show "Answer Q1"
+    Then the screen should show "Answer: Auth requirements?"
     And the screen should show "Idle."
 
   Scenario: Focus moves to next question after answering
     When I switch to the questions tab
-    Then the screen should show "Q1 (p8)"
+    Then the screen should show "[5] Auth requirements?"
     When I press Enter
     And I type "OAuth2"
     And I press Ctrl+S
-    Then the screen should show "Q2 (p5)"
-    And the detail panel should show "Q2 (p5): Target platform?"
+    Then the screen should show "[3] Target platform?"
+    And the detail panel should show "[3] Target platform?"
 
   Scenario: Tab is blocked during answer dialog
     When I switch to the questions tab
     And I press Enter
     And I press Tab
-    Then the screen should show "Answer Q1"
+    Then the screen should show "Answer: Auth requirements?"

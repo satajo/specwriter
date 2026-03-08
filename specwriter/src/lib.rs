@@ -943,6 +943,45 @@ impl AppRunner {
         screen.contains(needle)
     }
 
+    /// Check the foreground color and bold status of a text needle on screen.
+    /// Returns (color_name, is_bold) for the first non-space character of the needle.
+    /// color_name is one of: "red", "yellow", "green", "blue", "gray", "white", "default", "other".
+    pub fn text_style_on_screen(&mut self, needle: &str) -> (String, bool) {
+        self.terminal
+            .draw(|f| ui::draw(f, &self.app))
+            .unwrap();
+        let buf = self.terminal.backend().buffer().clone();
+        for y in 0..buf.area.height {
+            let mut row_text = String::new();
+            for x in 0..buf.area.width {
+                row_text.push_str(buf[(x, y)].symbol());
+            }
+            if let Some(start) = row_text.find(needle) {
+                for x in start..(start + needle.len()).min(buf.area.width as usize) {
+                    let cell = &buf[(x as u16, y)];
+                    if cell.symbol().trim().is_empty() {
+                        continue;
+                    }
+                    let color_name = match cell.fg {
+                        Color::Red | Color::LightRed => "red",
+                        Color::Yellow | Color::LightYellow => "yellow",
+                        Color::Green | Color::LightGreen => "green",
+                        Color::Blue | Color::LightBlue => "blue",
+                        Color::Gray | Color::DarkGray => "gray",
+                        Color::White => "white",
+                        Color::Reset => "default",
+                        _ => "other",
+                    };
+                    let bold = cell
+                        .modifier
+                        .contains(ratatui::style::Modifier::BOLD);
+                    return (color_name.to_string(), bold);
+                }
+            }
+        }
+        panic!("'{}' not found on screen", needle);
+    }
+
     /// Advance the animation tick counter.
     pub fn tick(&mut self) {
         self.app.tick();
