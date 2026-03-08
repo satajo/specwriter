@@ -87,14 +87,21 @@ pub fn draw(f: &mut Frame, app: &App) {
     let selected = match app.active_tab {
         ActiveTab::TextInput => 0,
         ActiveTab::Questions => 1,
+        ActiveTab::Spec => 2,
     };
     let highlight = match app.active_tab {
         ActiveTab::TextInput => Style::default().fg(Color::Black).bg(Color::Green).add_modifier(Modifier::BOLD),
         ActiveTab::Questions => Style::default().fg(Color::Black).bg(Color::Blue).add_modifier(Modifier::BOLD),
+        ActiveTab::Spec => Style::default().fg(Color::Black).bg(Color::Red).add_modifier(Modifier::BOLD),
+    };
+    let spec_label = match &app.spec_content {
+        Some(content) => format!(" SPEC.md ({}) ", content.lines().count()),
+        None => " No spec ".into(),
     };
     let titles = vec![
         Line::from(" Text Input ").green(),
         Line::from(format!(" Open Questions ({}) ", q_count)).blue(),
+        Line::from(spec_label).red(),
     ];
     let tabs = Tabs::new(titles)
         .select(selected)
@@ -107,6 +114,7 @@ pub fn draw(f: &mut Frame, app: &App) {
     match app.active_tab {
         ActiveTab::TextInput => draw_text_input(f, app, chunks[3]),
         ActiveTab::Questions => draw_questions(f, app, chunks[3]),
+        ActiveTab::Spec => draw_spec(f, app, chunks[3]),
     }
 
     // Help line
@@ -121,6 +129,9 @@ pub fn draw(f: &mut Frame, app: &App) {
             }
             ActiveTab::Questions => {
                 " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: navigate | Enter: answer"
+            }
+            ActiveTab::Spec => {
+                " Ctrl+C: quit | Tab: switch tab | \u{2191}\u{2193}: scroll"
             }
         }
     };
@@ -247,6 +258,29 @@ fn draw_questions(f: &mut Frame, app: &App, area: Rect) {
         .wrap(Wrap { trim: false })
         .scroll((detail_scroll, 0));
     f.render_widget(detail, sub[1]);
+}
+
+fn draw_spec(f: &mut Frame, app: &App, area: Rect) {
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::reset())
+        .padding(Padding::left(1));
+
+    match &app.spec_content {
+        None => {
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+            let placeholder = Paragraph::new("No spec file yet — submit requirements to create one.")
+                .style(Style::default().fg(Color::Gray));
+            f.render_widget(placeholder, inner);
+        }
+        Some(content) => {
+            let paragraph = Paragraph::new(content.as_str())
+                .block(block)
+                .scroll((app.spec_scroll, 0));
+            f.render_widget(paragraph, area);
+        }
+    }
 }
 
 fn draw_quit_dialog(f: &mut Frame, area: Rect) {

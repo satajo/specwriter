@@ -22,8 +22,9 @@ Feature: Tabbed UI
     Then the screen should show "No open questions"
     And the screen should show "navigate"
 
-  Scenario: Tab key switches back to text input
+  Scenario: Tab key cycles back to text input
     When I press Tab
+    And I press Tab
     And I press Tab
     Then the screen should show "Ctrl+S"
 

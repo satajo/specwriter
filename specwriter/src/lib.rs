@@ -19,6 +19,7 @@ pub enum AppState {
 pub enum ActiveTab {
     TextInput,
     Questions,
+    Spec,
 }
 
 #[derive(Debug)]
@@ -44,6 +45,8 @@ pub struct App {
     pub input_scroll: u16,
     pub detail_scroll: u16,
     pub quit_dialog: bool,
+    pub spec_content: Option<String>,
+    pub spec_scroll: u16,
 }
 
 impl App {
@@ -63,6 +66,8 @@ impl App {
             input_scroll: 0,
             detail_scroll: 0,
             quit_dialog: false,
+            spec_content: None,
+            spec_scroll: 0,
         }
     }
 
@@ -79,10 +84,17 @@ impl App {
         config: IntegratorConfig,
     ) -> (Self, mpsc::UnboundedReceiver<IntegratorMessage>) {
         let (ui_tx, ui_rx) = mpsc::unbounded_channel();
-        let initial_questions = integrator::scan_questions(&config.working_dir.join("SPEC.md"));
+        let spec_path = config.working_dir.join("SPEC.md");
+        let initial_questions = integrator::scan_questions(&spec_path);
+        let spec_content = if spec_path.exists() {
+            Some(std::fs::read_to_string(&spec_path).unwrap_or_default())
+        } else {
+            None
+        };
         let integrator = IntegratorHandle::new(ui_tx, config);
         let mut app = Self::new(integrator);
         app.questions = initial_questions;
+        app.spec_content = spec_content;
         (app, ui_rx)
     }
 
@@ -147,6 +159,14 @@ impl App {
                 self.state = AppState::Idle;
                 self.status = "Idle.".into();
                 self.quit_dialog = false;
+                // Refresh spec content
+                let spec_path = self.integrator.working_dir().join("SPEC.md");
+                self.spec_content = if spec_path.exists() {
+                    Some(std::fs::read_to_string(&spec_path).unwrap_or_default())
+                } else {
+                    None
+                };
+                self.spec_scroll = 0;
             }
             IntegratorMessage::StatusUpdate(s) => {
                 if s.contains("Error") {
@@ -198,7 +218,8 @@ impl App {
         if key.code == KeyCode::Tab && key.modifiers == KeyModifiers::NONE {
             self.active_tab = match self.active_tab {
                 ActiveTab::TextInput => ActiveTab::Questions,
-                ActiveTab::Questions => ActiveTab::TextInput,
+                ActiveTab::Questions => ActiveTab::Spec,
+                ActiveTab::Spec => ActiveTab::TextInput,
             };
             return;
         }
@@ -206,6 +227,7 @@ impl App {
         match self.active_tab {
             ActiveTab::TextInput => self.handle_text_input_key(key),
             ActiveTab::Questions => self.handle_questions_key(key),
+            ActiveTab::Spec => self.handle_spec_key(key),
         }
     }
 
@@ -292,6 +314,25 @@ impl App {
                         input: String::new(),
                         cursor_pos: 0,
                     });
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_spec_key(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::Down => {
+                if let Some(ref content) = self.spec_content {
+                    let total_lines = content.lines().count().max(1) as u16;
+                    if self.spec_scroll < total_lines.saturating_sub(1) {
+                        self.spec_scroll += 1;
+                    }
+                }
+            }
+            KeyCode::Up => {
+                if self.spec_scroll > 0 {
+                    self.spec_scroll -= 1;
                 }
             }
             _ => {}

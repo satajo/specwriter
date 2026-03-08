@@ -278,7 +278,7 @@ async fn press_esc(world: &mut SpecwriterWorld) {
 async fn switch_to_questions_tab(world: &mut SpecwriterWorld) {
     use specwriter::ActiveTab;
     // Press Tab until we're on the Questions tab
-    for _ in 0..2 {
+    for _ in 0..3 {
         if world.runner().app.active_tab == ActiveTab::Questions {
             return;
         }
@@ -291,8 +291,22 @@ async fn switch_to_questions_tab(world: &mut SpecwriterWorld) {
 #[when("I switch to the text input tab")]
 async fn switch_to_text_input_tab(world: &mut SpecwriterWorld) {
     use specwriter::ActiveTab;
-    for _ in 0..2 {
+    for _ in 0..3 {
         if world.runner().app.active_tab == ActiveTab::TextInput {
+            return;
+        }
+        world
+            .runner()
+            .send_key(specwriter::KeyCode::Tab, specwriter::KeyModifiers::NONE);
+    }
+}
+
+#[given("I switch to the spec tab")]
+#[when("I switch to the spec tab")]
+async fn switch_to_spec_tab(world: &mut SpecwriterWorld) {
+    use specwriter::ActiveTab;
+    for _ in 0..3 {
+        if world.runner().app.active_tab == ActiveTab::Spec {
             return;
         }
         world
@@ -625,6 +639,7 @@ async fn active_tab_should_be_bold(world: &mut SpecwriterWorld) {
     let tab_name = match world.runner().app.active_tab {
         specwriter::ActiveTab::TextInput => "Text Input",
         specwriter::ActiveTab::Questions => "Open Questions",
+        specwriter::ActiveTab::Spec => "SPEC.md",
     };
     // Tab labels are on row index 2 (row 3, zero-indexed)
     assert!(

@@ -52,6 +52,7 @@ impl IntegratorConfig {
 #[derive(Debug)]
 pub struct IntegratorHandle {
     tx: mpsc::UnboundedSender<String>,
+    working_dir: PathBuf,
 }
 
 impl IntegratorHandle {
@@ -60,12 +61,17 @@ impl IntegratorHandle {
         config: IntegratorConfig,
     ) -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
+        let working_dir = config.working_dir.clone();
         tokio::spawn(integrator_loop(rx, ui_tx, config));
-        Self { tx }
+        Self { tx, working_dir }
     }
 
     pub fn send(&self, message: String) {
         let _ = self.tx.send(message);
+    }
+
+    pub fn working_dir(&self) -> &Path {
+        &self.working_dir
     }
 }
 
